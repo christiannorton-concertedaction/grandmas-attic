@@ -62,9 +62,11 @@ export async function createItem(input: CreateItemInput): Promise<Item> {
 
 export async function createPendingItem(
   photoPath: string,
-  prominence?: string | null
+  prominence?: string | null,
+  id?: string
 ): Promise<Item> {
   return createItem({
+    id,
     photo_path: photoPath,
     prominence: prominence ?? null,
     analysis_status: 'pending',

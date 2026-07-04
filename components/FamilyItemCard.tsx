@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Colors } from '@/constants/Colors';
 import { DecisionBadge } from '@/components/DecisionPicker';
@@ -64,13 +64,24 @@ export function FamilyItemCard({ item, myMemberId }: FamilyItemCardProps) {
     }
   }, [item.decision, item.family_member_id]);
 
-  useEffect(() => {
-    if (myMemberId) {
+  // Reload on focus so toggling interest on the detail screen is
+  // reflected when navigating back to the list.
+  useFocusEffect(
+    useCallback(() => {
+      if (!myMemberId) return;
+      let cancelled = false;
       hasInterest(item.id, myMemberId)
-        .then(setIsInterested)
-        .catch(() => setIsInterested(false));
-    }
-  }, [item.id, myMemberId]);
+        .then((value) => {
+          if (!cancelled) setIsInterested(value);
+        })
+        .catch(() => {
+          if (!cancelled) setIsInterested(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [item.id, myMemberId])
+  );
 
   async function handleToggleInterest() {
     if (!myMemberId || togglingInterest) return;

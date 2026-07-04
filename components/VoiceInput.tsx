@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,10 @@ export function VoiceInput({
   const [isAvailable, setIsAvailable] = useState(true);
   const [showTextInput, setShowTextInput] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  // Text present when listening started. Interim results fire repeatedly with
+  // growing transcripts, so we always combine base + latest transcript instead
+  // of appending (which would duplicate words).
+  const baseTextRef = useRef('');
 
   useEffect(() => {
     checkAvailability();
@@ -74,8 +78,14 @@ export function VoiceInput({
 
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = event.results[0]?.transcript ?? '';
-    if (transcript) {
-      onChangeText(value ? `${value} ${transcript}` : transcript);
+    if (!transcript) return;
+
+    const base = baseTextRef.current;
+    const combined = base ? `${base} ${transcript}` : transcript;
+    onChangeText(combined);
+
+    if (event.isFinal) {
+      baseTextRef.current = combined;
     }
   });
 
@@ -102,6 +112,7 @@ export function VoiceInput({
     }
 
     try {
+      baseTextRef.current = value;
       ExpoSpeechRecognitionModule.start({
         lang: 'en-US',
         interimResults: true,

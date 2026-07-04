@@ -17,9 +17,9 @@ import { Colors } from '@/constants/Colors';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import {
   createPendingItem,
+  deleteItem,
   uploadItemPhoto,
   analyzePendingItems,
-  listPendingItems,
 } from '@/lib/items';
 
 type Step = 'capture' | 'uploading' | 'queue' | 'analyzing';
@@ -27,6 +27,7 @@ type Step = 'capture' | 'uploading' | 'queue' | 'analyzing';
 interface QueuedItem {
   id: string;
   localUri: string;
+  photoPath: string | null;
   prominence: string;
   status: 'uploading' | 'queued' | 'analyzing' | 'done' | 'error';
 }
@@ -62,6 +63,7 @@ export default function AddItemScreen() {
     const newItem: QueuedItem = {
       id: itemId,
       localUri: uri,
+      photoPath: null,
       prominence: currentProminence,
       status: 'uploading',
     };
@@ -73,11 +75,12 @@ export default function AddItemScreen() {
     try {
       const photoPath = await uploadItemPhoto(uri, itemId);
       
-      await createPendingItem(photoPath, currentProminence || null);
+      // Use the same id for the DB row so remove/clear can delete it later.
+      await createPendingItem(photoPath, currentProminence || null, itemId);
       
       setQueue(prev => 
         prev.map(item => 
-          item.id === itemId ? { ...item, status: 'queued' } : item
+          item.id === itemId ? { ...item, photoPath, status: 'queued' } : item
         )
       );
     } catch (err) {
@@ -123,8 +126,19 @@ export default function AddItemScreen() {
     }
   }
 
-  function handleRemoveFromQueue(id: string) {
+  async function handleRemoveFromQueue(id: string) {
+    const queued = queue.find(item => item.id === id);
     setQueue(prev => prev.filter(item => item.id !== id));
+
+    // Also delete the pending DB row and photo, otherwise the item would
+    // still be analyzed by the next batch run.
+    if (queued?.photoPath) {
+      try {
+        await deleteItem(id, queued.photoPath);
+      } catch (err) {
+        console.error('Failed to delete queued item:', err);
+      }
+    }
   }
 
   function handleClearQueue() {
@@ -133,7 +147,21 @@ export default function AddItemScreen() {
       'This will remove all queued photos. They will need to be re-captured.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', style: 'destructive', onPress: () => setQueue([]) },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            const toDelete = queue.filter(item => item.photoPath);
+            setQueue([]);
+            for (const item of toDelete) {
+              try {
+                await deleteItem(item.id, item.photoPath!);
+              } catch (err) {
+                console.error('Failed to delete queued item:', err);
+              }
+            }
+          },
+        },
       ]
     );
   }

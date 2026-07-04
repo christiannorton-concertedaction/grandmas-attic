@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Colors } from '@/constants/Colors';
-import { setFamilyMemberIdentity } from '@/lib/userRole';
+import { clearUserRole, setFamilyMemberIdentity } from '@/lib/userRole';
 import { listFamilyMembers, createFamilyMember } from '@/lib/familyMembers';
 import type { FamilyMember } from '@/types/item';
 
@@ -164,7 +164,12 @@ export default function FamilyIdentityScreen() {
 
       <Pressable
         style={styles.backButton}
-        onPress={() => router.back()}
+        onPress={async () => {
+          // Clear the stored role first, otherwise the navigation guard
+          // immediately redirects away from the role-select screen.
+          await clearUserRole();
+          router.replace('/role-select');
+        }}
         disabled={selecting !== null || adding}
       >
         <FontAwesome name="arrow-left" size={14} color={Colors.textMuted} />

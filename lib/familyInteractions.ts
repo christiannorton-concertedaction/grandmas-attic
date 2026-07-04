@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { getHouseholdId } from './household';
 
 export interface ItemInterest {
   id: string;
@@ -83,6 +82,18 @@ export async function hasInterest(
   return data !== null;
 }
 
+export async function getInterestedItemIds(
+  familyMemberId: string
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('item_interests')
+    .select('item_id')
+    .eq('family_member_id', familyMemberId);
+
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => row.item_id as string));
+}
+
 export async function getFamilyNotes(itemId: string): Promise<FamilyNoteWithMember[]> {
   const { data, error } = await supabase
     .from('family_notes')
@@ -135,22 +146,4 @@ export async function deleteFamilyNote(noteId: string): Promise<void> {
     .eq('id', noteId);
 
   if (error) throw error;
-}
-
-export async function getInterestCounts(): Promise<Map<string, number>> {
-  const householdId = await getHouseholdId();
-  
-  const { data, error } = await supabase
-    .from('item_interests')
-    .select('item_id, items!inner(household_id)')
-    .eq('items.household_id', householdId);
-
-  if (error) throw error;
-
-  const counts = new Map<string, number>();
-  for (const row of data ?? []) {
-    const itemId = row.item_id;
-    counts.set(itemId, (counts.get(itemId) ?? 0) + 1);
-  }
-  return counts;
 }

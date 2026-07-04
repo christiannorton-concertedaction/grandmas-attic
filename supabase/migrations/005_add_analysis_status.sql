@@ -20,3 +20,10 @@ alter table public.items alter column description drop not null;
 -- Set default for title
 alter table public.items alter column title set default null;
 alter table public.items alter column description set default '';
+
+-- Backfill: items that existed before this migration were already analyzed,
+-- so mark them completed instead of leaving them at the 'pending' default
+-- (which would hide them from lists and show them as "Analyzing..." forever).
+update public.items
+  set analysis_status = 'completed'
+  where title is not null and analysis_status = 'pending';

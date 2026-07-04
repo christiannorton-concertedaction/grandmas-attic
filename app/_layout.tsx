@@ -9,52 +9,54 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const [isLoading, setIsLoading] = useState(true);
-  const [role, setRole] = useState<UserRole | null>(null);
 
+  // Re-read the role from storage on every navigation so the guard never
+  // acts on stale data (e.g. right after selecting or switching roles).
   useEffect(() => {
-    async function checkRole() {
+    let cancelled = false;
+
+    async function enforceRole() {
+      let role: UserRole | null = null;
       try {
-        const storedRole = await getUserRole();
-        setRole(storedRole);
+        role = await getUserRole();
       } catch (err) {
         console.error('Failed to check role:', err);
-      } finally {
-        setIsLoading(false);
       }
-    }
-    checkRole();
-  }, []);
+      if (cancelled) return;
 
-  useEffect(() => {
-    if (isLoading) return;
+      setIsLoading(false);
 
-    const inRoleSelect = segments[0] === 'role-select';
-    const inFamilyIdentity = segments[0] === 'family-identity';
-    const inFamilyTabs = segments[0] === '(family)';
-    const inOwnerTabs = segments[0] === '(tabs)';
+      const inRoleSelect = segments[0] === 'role-select';
+      const inFamilyIdentity = segments[0] === 'family-identity';
+      const inFamilyArea = segments[0] === '(family)' || segments[0] === 'family-item';
+      const inOwnerArea = segments[0] === '(tabs)' || segments[0] === 'item';
 
-    if (!role) {
-      if (!inRoleSelect) {
-        router.replace('/role-select');
-      }
-    } else if (role === 'grandma') {
-      if (inRoleSelect || inFamilyIdentity || inFamilyTabs) {
-        router.replace('/(tabs)');
-      }
-    } else if (role === 'family') {
-      if (inRoleSelect) {
-        getFamilyMemberIdentity().then((memberId) => {
+      if (!role) {
+        if (!inRoleSelect) {
+          router.replace('/role-select');
+        }
+      } else if (role === 'grandma') {
+        if (inRoleSelect || inFamilyIdentity || inFamilyArea) {
+          router.replace('/(tabs)');
+        }
+      } else if (role === 'family') {
+        if (inRoleSelect || inOwnerArea) {
+          const memberId = await getFamilyMemberIdentity();
+          if (cancelled) return;
           if (memberId) {
             router.replace('/(family)');
           } else {
             router.replace('/family-identity');
           }
-        });
-      } else if (inOwnerTabs) {
-        router.replace('/(family)');
+        }
       }
     }
-  }, [isLoading, role, segments, router]);
+
+    enforceRole();
+    return () => {
+      cancelled = true;
+    };
+  }, [segments, router]);
 
   if (isLoading) {
     return (

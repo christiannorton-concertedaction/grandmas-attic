@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,17 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { FamilyItemCard } from '@/components/FamilyItemCard';
 import { EmptyState } from '@/components/EmptyState';
 import { listItems } from '@/lib/items';
-import { getFamilyMemberIdentity } from '@/lib/userRole';
+import { getFamilyMemberIdentity, clearFamilyMemberIdentity } from '@/lib/userRole';
 import { getFamilyMember } from '@/lib/familyMembers';
 import type { Item, FamilyMember } from '@/types/item';
 
 export default function FamilyBrowseScreen() {
+  const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,7 +34,17 @@ export default function FamilyBrowseScreen() {
       
       if (memberId) {
         const member = await getFamilyMember(memberId);
+        if (!member) {
+          // The owner deleted this family member; the stored identity is
+          // stale, so send the user back to pick or re-create one.
+          await clearFamilyMemberIdentity();
+          router.replace('/family-identity');
+          return;
+        }
         setMyIdentity(member);
+      } else {
+        router.replace('/family-identity');
+        return;
       }
     } catch (err) {
       console.error('Failed to load items:', err);
@@ -41,7 +52,7 @@ export default function FamilyBrowseScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -88,7 +99,6 @@ export default function FamilyBrowseScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            icon="archive"
             title="No items yet"
             message="The owner hasn't cataloged any items yet. Check back later!"
           />

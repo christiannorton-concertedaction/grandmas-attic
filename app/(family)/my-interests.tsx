@@ -1,7 +1,6 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   RefreshControl,
@@ -13,7 +12,7 @@ import { FamilyItemCard } from '@/components/FamilyItemCard';
 import { EmptyState } from '@/components/EmptyState';
 import { listItems } from '@/lib/items';
 import { getFamilyMemberIdentity } from '@/lib/userRole';
-import { hasInterest } from '@/lib/familyInteractions';
+import { getInterestedItemIds } from '@/lib/familyInteractions';
 import type { Item } from '@/types/item';
 
 export default function MyInterestsScreen() {
@@ -32,18 +31,16 @@ export default function MyInterestsScreen() {
         return;
       }
 
-      const allItems = await listItems();
-      const completedItems = allItems.filter(i => i.analysis_status === 'completed');
-      
-      const interestedItems: Item[] = [];
-      for (const item of completedItems) {
-        const interested = await hasInterest(item.id, memberId);
-        if (interested) {
-          interestedItems.push(item);
-        }
-      }
-      
-      setItems(interestedItems);
+      const [allItems, interestedIds] = await Promise.all([
+        listItems(),
+        getInterestedItemIds(memberId),
+      ]);
+
+      setItems(
+        allItems.filter(
+          (i) => i.analysis_status === 'completed' && interestedIds.has(i.id)
+        )
+      );
     } catch (err) {
       console.error('Failed to load interests:', err);
     } finally {
@@ -89,7 +86,6 @@ export default function MyInterestsScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            icon="heart-o"
             title="No interests yet"
             message="Browse items and tap the heart to mark items you're interested in."
           />

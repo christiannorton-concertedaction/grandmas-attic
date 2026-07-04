@@ -29,3 +29,7 @@ export async function getFamilyMemberIdentity(): Promise<string | null> {
 export async function setFamilyMemberIdentity(memberId: string): Promise<void> {
   await AsyncStorage.setItem(FAMILY_MEMBER_ID_KEY, memberId);
 }
+
+export async function clearFamilyMemberIdentity(): Promise<void> {
+  await AsyncStorage.removeItem(FAMILY_MEMBER_ID_KEY);
+}
