@@ -169,10 +169,11 @@ export async function uploadItemPhoto(
 }
 
 export async function analyzeItemPhoto(
-  photoPath: string
+  photoPath: string,
+  prominence?: string
 ): Promise<AnalyzeResult> {
   const { data, error } = await supabase.functions.invoke('analyze-item', {
-    body: { photo_path: photoPath },
+    body: { photo_path: photoPath, prominence },
   });
 
   if (error) throw error;

@@ -68,7 +68,7 @@ export default function AddItemScreen() {
       const path = await uploadItemPhoto(uri, itemId);
       setPhotoPath(path);
 
-      const result = await analyzeItemPhoto(path);
+      const result = await analyzeItemPhoto(path, prominence.trim() || undefined);
       setTitle(result.title);
       setDescription(result.description);
       setValueLow(result.estimated_value_low);
@@ -151,6 +151,23 @@ export default function AddItemScreen() {
             Photograph something you might sell. Grandma will take a look and
             suggest what it is and what it might be worth.
           </Text>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Know the story? (optional)</Text>
+            <Text style={styles.storyHint}>
+              Adding context helps identify items more accurately — e.g., "Grandpa's WWII watch" or "1950s china from Germany"
+            </Text>
+            <TextInput
+              style={[styles.input, styles.storyInput]}
+              value={prominence}
+              onChangeText={setProminence}
+              placeholder="e.g., This belonged to my grandmother in the 1940s..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
+
           <PhotoCapture key={itemId} onPhotoSelected={handlePhotoSelected} />
           {error && <Text style={styles.error}>{error}</Text>}
         </>
@@ -214,18 +231,32 @@ export default function AddItemScreen() {
 
           <View style={styles.section}>
             <Text style={styles.label}>Story & History</Text>
-            <Text style={styles.prominenceHint}>
-              Record this item's story — where it came from, who owned it, why it matters to the family.
-            </Text>
-            <TextInput
-              style={[styles.input, styles.prominenceInput]}
-              value={prominence}
-              onChangeText={setProminence}
-              placeholder="e.g., This was Grandpa Joe's watch from WWII. He wore it every day until..."
-              placeholderTextColor={Colors.textMuted}
-              multiline
-              textAlignVertical="top"
-            />
+            {prominence.trim() ? (
+              <TextInput
+                style={[styles.input, styles.prominenceInput]}
+                value={prominence}
+                onChangeText={setProminence}
+                placeholder="Add more to the story..."
+                placeholderTextColor={Colors.textMuted}
+                multiline
+                textAlignVertical="top"
+              />
+            ) : (
+              <>
+                <Text style={styles.prominenceHint}>
+                  Record this item's story — where it came from, who owned it, why it matters.
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.prominenceInput]}
+                  value={prominence}
+                  onChangeText={setProminence}
+                  placeholder="e.g., This was Grandpa Joe's watch from WWII..."
+                  placeholderTextColor={Colors.textMuted}
+                  multiline
+                  textAlignVertical="top"
+                />
+              </>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -336,14 +367,22 @@ const styles = StyleSheet.create({
     minHeight: 100,
     paddingTop: 12,
   },
+  storyHint: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  storyInput: {
+    minHeight: 80,
+    paddingTop: 12,
+  },
   prominenceHint: {
     color: Colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 4,
   },
   prominenceInput: {
-    minHeight: 120,
+    minHeight: 100,
     paddingTop: 12,
   },
   description: {

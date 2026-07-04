@@ -9,6 +9,7 @@ const corsHeaders = {
 
 interface AnalyzeRequest {
   photo_path: string;
+  prominence?: string;
 }
 
 interface AnalyzeResponse {
@@ -34,7 +35,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { photo_path }: AnalyzeRequest = await req.json();
+    const { photo_path, prominence }: AnalyzeRequest = await req.json();
     if (!photo_path) {
       throw new Error('photo_path is required');
     }
@@ -73,7 +74,9 @@ If you cannot identify the item, use title "Unknown item", describe what you see
             content: [
               {
                 type: 'text',
-                text: 'Identify this item and estimate its resale value range in USD.',
+                text: prominence?.trim()
+                  ? `Identify this item and estimate its resale value range in USD.\n\nThe owner provided this context about the item's story/history:\n"${prominence.trim()}"\n\nUse this context to help identify the item more accurately (e.g., era, origin, type).`
+                  : 'Identify this item and estimate its resale value range in USD.',
               },
               {
                 type: 'image_url',
