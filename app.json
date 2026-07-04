@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Grandma's Attic",
+    "slug": "grandmas-attic",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "grandmas-attic",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F0E8"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.grandmasattic.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Take photos of items in your home to catalog and price them.",
+        "NSPhotoLibraryUsageDescription": "Choose photos of items you want to catalog and sell."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F5F0E8"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos of items you want to catalog and sell.",
+          "cameraPermission": "Take photos of items in your home to catalog and price them."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

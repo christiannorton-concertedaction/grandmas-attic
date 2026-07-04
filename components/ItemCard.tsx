@@ -1,0 +1,111 @@
+import { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { Colors } from '@/constants/Colors';
+import { DecisionBadge } from '@/components/DecisionPicker';
+import { getPhotoSignedUrl } from '@/lib/items';
+import { formatValueRange, type Item } from '@/types/item';
+
+interface ItemCardProps {
+  item: Item;
+}
+
+export function ItemCard({ item }: ItemCardProps) {
+  const router = useRouter();
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [loadingPhoto, setLoadingPhoto] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPhotoSignedUrl(item.photo_path)
+      .then((url) => {
+        if (!cancelled) setPhotoUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setPhotoUrl(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPhoto(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.photo_path]);
+
+  return (
+    <Pressable
+      style={styles.card}
+      onPress={() => router.push(`/item/${item.id}`)}
+    >
+      <View style={styles.thumbnailWrap}>
+        {loadingPhoto ? (
+          <ActivityIndicator color={Colors.primary} />
+        ) : photoUrl ? (
+          <Image source={{ uri: photoUrl }} style={styles.thumbnail} contentFit="cover" />
+        ) : (
+          <Text style={styles.placeholder}>📷</Text>
+        )}
+      </View>
+      <View style={styles.content}>
+        <Text style={styles.title} numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text style={styles.value}>
+          {formatValueRange(item.estimated_value_low, item.estimated_value_high)}
+        </Text>
+        <DecisionBadge decision={item.decision} compact />
+      </View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: 12,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  thumbnailWrap: {
+    alignItems: 'center',
+    backgroundColor: '#EDE4D6',
+    borderRadius: 12,
+    height: 80,
+    justifyContent: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+    width: 80,
+  },
+  thumbnail: {
+    height: '100%',
+    width: '100%',
+  },
+  placeholder: {
+    fontSize: 28,
+  },
+  content: {
+    flex: 1,
+    gap: 6,
+    justifyContent: 'center',
+  },
+  title: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  value: {
+    color: Colors.textMuted,
+    fontSize: 14,
+  },
+});
