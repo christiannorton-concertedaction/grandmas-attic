@@ -1,6 +1,6 @@
 # Grandma's Attic
 
-Catalog items around your home with photos, AI-powered identification and value estimates, notes, and keep/sell decisions.
+Catalog items around your home with photos, AI-powered identification and value estimates, notes, and keep/sell decisions. Family members can browse the catalog, leave notes, and indicate interest in items.
 
 ## Stack
 
@@ -25,6 +25,7 @@ npm install
    - `supabase/migrations/003_add_prominence.sql`
    - `supabase/migrations/004_add_decision_options.sql`
    - `supabase/migrations/005_add_analysis_status.sql`
+   - `supabase/migrations/006_add_family_features.sql`
 3. Copy your project URL and anon key
 
 ### 3. Environment variables
@@ -64,11 +65,39 @@ npx expo start
 
 Scan the QR code with **Expo Go** on your iPhone, or press `i` for the iOS simulator.
 
+## User Roles
+
+The app supports two user roles:
+
+### Owner ("Grandma")
+- Full access to all features
+- Add, edit, and delete items
+- AI-powered analysis and valuation
+- Make decisions about items (keep, sell, donate, etc.)
+- Manage family members
+- See who is interested in items and read family comments
+
+### Family
+- Browse the catalog of completed items
+- Mark items they're interested in ("I want this")
+- Leave notes/comments on items
+- View item details, values, and stories
+
+On first launch, users select their role. The role is stored locally and can be switched from Settings.
+
 ## App flow
 
+### Owner Flow
 1. **Items tab** — view everything you've cataloged
 2. **Add tab** — batch capture: take multiple photos with stories → analyze all at once (saves ~90% on AI costs)
-3. **Item detail** — edit notes, change decision, view eBay pricing, delete item
+3. **Item detail** — edit notes, change decision, view eBay pricing, see family interest, delete item
+4. **Settings tab** — view role, switch to Family mode
+
+### Family Flow
+1. **Browse tab** — view all cataloged items
+2. **Item detail** — view details, mark interest, leave comments
+3. **My Interests tab** — see items you've marked as wanting
+4. **Settings tab** — change identity, switch to Owner mode
 
 ## Cost Optimization
 
@@ -103,8 +132,19 @@ Each item can have a "Story & History" field where you can record:
 
 This helps preserve the sentimental value and history of items, especially useful for heirlooms and keepsakes.
 
+## Family Collaboration
+
+### Interest Tracking
+Family members can mark items they're interested in. The owner sees:
+- Heart indicators on item cards showing how many family members want each item
+- List of interested family members on item detail pages
+
+### Family Notes
+Family members can leave comments on items. Notes appear on the item detail page for both the owner and other family members to read.
+
 ## Notes
 
 - v1 uses a device-local `household_id` (no login). Data stays on this phone's scope.
+- User role is stored locally via AsyncStorage. Family members select their identity from the family member list.
 - AI value estimates are rough guides, not professional appraisals.
 - Requires Node.js 18.18+ (20+ recommended) for development.

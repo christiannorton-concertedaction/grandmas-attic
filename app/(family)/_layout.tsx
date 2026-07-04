@@ -10,7 +10,7 @@ function TabBarIcon(props: {
   return <FontAwesome size={24} style={{ marginBottom: -2 }} {...props} />;
 }
 
-export default function TabLayout() {
+export default function FamilyTabLayout() {
   return (
     <Tabs
       screenOptions={{
@@ -28,15 +28,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Items',
-          tabBarIcon: ({ color }) => <TabBarIcon name="archive" color={color} />,
+          title: 'Browse Items',
+          tabBarIcon: ({ color }) => <TabBarIcon name="th-large" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="add"
+        name="my-interests"
         options={{
-          title: 'Add Item',
-          tabBarIcon: ({ color }) => <TabBarIcon name="camera" color={color} />,
+          title: 'My Interests',
+          tabBarIcon: ({ color }) => <TabBarIcon name="heart" color={color} />,
         }}
       />
       <Tabs.Screen

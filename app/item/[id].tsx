@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DecisionPicker } from '@/components/DecisionPicker';
 import { Colors } from '@/constants/Colors';
 import {
@@ -21,6 +22,12 @@ import {
   updateItemNotes,
   updateItemProminence,
 } from '@/lib/items';
+import {
+  getItemInterests,
+  getFamilyNotes,
+  type ItemInterestWithMember,
+  type FamilyNoteWithMember,
+} from '@/lib/familyInteractions';
 import { formatValueRange, type Decision, type Item } from '@/types/item';
 
 export default function ItemDetailScreen() {
@@ -36,6 +43,8 @@ export default function ItemDetailScreen() {
   const [updatingDecision, setUpdatingDecision] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [interests, setInterests] = useState<ItemInterestWithMember[]>([]);
+  const [familyNotes, setFamilyNotes] = useState<FamilyNoteWithMember[]>([]);
 
   const loadItem = useCallback(async () => {
     if (!id) return;
@@ -55,8 +64,14 @@ export default function ItemDetailScreen() {
       setNotes(data.notes ?? '');
       setProminence(data.prominence ?? '');
 
-      const url = await getPhotoSignedUrl(data.photo_path);
+      const [url, itemInterests, itemNotes] = await Promise.all([
+        getPhotoSignedUrl(data.photo_path),
+        getItemInterests(id),
+        getFamilyNotes(id),
+      ]);
       setPhotoUrl(url);
+      setInterests(itemInterests);
+      setFamilyNotes(itemNotes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load item');
     } finally {
@@ -237,6 +252,36 @@ export default function ItemDetailScreen() {
         />
       </View>
 
+      {(interests.length > 0 || familyNotes.length > 0) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Family Interest</Text>
+          
+          {interests.length > 0 && (
+            <View style={styles.interestBox}>
+              <FontAwesome name="heart" size={16} color={Colors.primary} />
+              <Text style={styles.interestText}>
+                {interests.map(i => i.family_member.name).join(', ')}
+                {interests.length === 1 ? ' wants' : ' want'} this item
+              </Text>
+            </View>
+          )}
+
+          {familyNotes.length > 0 && (
+            <View style={styles.notesList}>
+              {familyNotes.map((note) => (
+                <View key={note.id} style={styles.noteItem}>
+                  <View style={styles.noteHeader}>
+                    <FontAwesome name="comment" size={12} color={Colors.textMuted} />
+                    <Text style={styles.noteName}>{note.family_member.name}</Text>
+                  </View>
+                  <Text style={styles.noteText}>{note.note}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Decision</Text>
         <DecisionPicker
@@ -336,6 +381,43 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 10,
+  },
+  interestBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F3EAD6',
+    padding: 14,
+    borderRadius: 10,
+  },
+  interestText: {
+    flex: 1,
+    color: Colors.text,
+    fontSize: 14,
+  },
+  notesList: {
+    gap: 8,
+  },
+  noteItem: {
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+  },
+  noteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  noteName: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  noteText: {
+    color: Colors.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
   sectionTitle: {
     color: Colors.text,
