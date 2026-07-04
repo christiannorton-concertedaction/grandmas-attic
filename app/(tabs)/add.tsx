@@ -13,6 +13,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { PhotoCapture } from '@/components/PhotoCapture';
 import { DecisionPicker } from '@/components/DecisionPicker';
+import { VoiceInput } from '@/components/VoiceInput';
 import { Colors } from '@/constants/Colors';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import {
@@ -152,21 +153,13 @@ export default function AddItemScreen() {
             suggest what it is and what it might be worth.
           </Text>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Know the story? (optional)</Text>
-            <Text style={styles.storyHint}>
-              Adding context helps identify items more accurately — e.g., "Grandpa's WWII watch" or "1950s china from Germany"
-            </Text>
-            <TextInput
-              style={[styles.input, styles.storyInput]}
-              value={prominence}
-              onChangeText={setProminence}
-              placeholder="e.g., This belonged to my grandmother in the 1940s..."
-              placeholderTextColor={Colors.textMuted}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
+          <VoiceInput
+            value={prominence}
+            onChangeText={setProminence}
+            label="Know the story? (optional)"
+            hint="Tell the story to help identify items more accurately — e.g., era, origin, previous owner"
+            placeholder="e.g., This belonged to my grandmother in the 1940s..."
+          />
 
           <PhotoCapture key={itemId} onPhotoSelected={handlePhotoSelected} />
           {error && <Text style={styles.error}>{error}</Text>}
@@ -229,35 +222,13 @@ export default function AddItemScreen() {
             />
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.label}>Story & History</Text>
-            {prominence.trim() ? (
-              <TextInput
-                style={[styles.input, styles.prominenceInput]}
-                value={prominence}
-                onChangeText={setProminence}
-                placeholder="Add more to the story..."
-                placeholderTextColor={Colors.textMuted}
-                multiline
-                textAlignVertical="top"
-              />
-            ) : (
-              <>
-                <Text style={styles.prominenceHint}>
-                  Record this item's story — where it came from, who owned it, why it matters.
-                </Text>
-                <TextInput
-                  style={[styles.input, styles.prominenceInput]}
-                  value={prominence}
-                  onChangeText={setProminence}
-                  placeholder="e.g., This was Grandpa Joe's watch from WWII..."
-                  placeholderTextColor={Colors.textMuted}
-                  multiline
-                  textAlignVertical="top"
-                />
-              </>
-            )}
-          </View>
+          <VoiceInput
+            value={prominence}
+            onChangeText={setProminence}
+            label="Story & History"
+            hint={prominence.trim() ? undefined : "Record this item's story — where it came from, who owned it, why it matters."}
+            placeholder="e.g., This was Grandpa Joe's watch from WWII..."
+          />
 
           <View style={styles.section}>
             <Text style={styles.label}>What should we do with it?</Text>
@@ -364,24 +335,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   notesInput: {
-    minHeight: 100,
-    paddingTop: 12,
-  },
-  storyHint: {
-    color: Colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  storyInput: {
-    minHeight: 80,
-    paddingTop: 12,
-  },
-  prominenceHint: {
-    color: Colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  prominenceInput: {
     minHeight: 100,
     paddingTop: 12,
   },
