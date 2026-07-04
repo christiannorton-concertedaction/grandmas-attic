@@ -46,6 +46,7 @@ export async function createItem(input: CreateItemInput): Promise<Item> {
       estimated_value_high: input.estimated_value_high,
       notes: input.notes ?? null,
       decision: input.decision ?? 'undecided',
+      family_member_id: input.family_member_id ?? null,
       ai_confidence: input.ai_confidence ?? null,
     })
     .select('*')
@@ -74,12 +75,21 @@ export async function updateItemNotes(
 
 export async function updateItemDecision(
   id: string,
-  decision: Decision
+  decision: Decision,
+  familyMemberId?: string | null
 ): Promise<Item> {
   const householdId = await getHouseholdId();
+  const updateData: { decision: Decision; family_member_id?: string | null } = { decision };
+  
+  if (decision === 'family_member') {
+    updateData.family_member_id = familyMemberId ?? null;
+  } else {
+    updateData.family_member_id = null;
+  }
+
   const { data, error } = await supabase
     .from('items')
-    .update({ decision })
+    .update(updateData)
     .eq('id', id)
     .eq('household_id', householdId)
     .select('*')

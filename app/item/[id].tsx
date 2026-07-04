@@ -83,12 +83,12 @@ export default function ItemDetailScreen() {
     }
   }
 
-  async function handleDecisionChange(decision: Decision) {
-    if (!item || decision === item.decision) return;
+  async function handleDecisionChange(decision: Decision, familyMemberId?: string | null) {
+    if (!item || (decision === item.decision && familyMemberId === item.family_member_id)) return;
 
     setUpdatingDecision(true);
     try {
-      const updated = await updateItemDecision(item.id, decision);
+      const updated = await updateItemDecision(item.id, decision, familyMemberId);
       setItem(updated);
     } catch (err) {
       Alert.alert(
@@ -198,6 +198,7 @@ export default function ItemDetailScreen() {
         <Text style={styles.sectionTitle}>Decision</Text>
         <DecisionPicker
           value={item.decision}
+          familyMemberId={item.family_member_id}
           onChange={handleDecisionChange}
           disabled={updatingDecision}
         />

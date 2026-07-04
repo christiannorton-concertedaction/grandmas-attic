@@ -19,7 +19,9 @@ npm install
 ### 2. Configure Supabase
 
 1. Create a project at [supabase.com](https://supabase.com)
-2. In the SQL Editor, run the migration in `supabase/migrations/001_create_items.sql`
+2. In the SQL Editor, run the migrations in order:
+   - `supabase/migrations/001_create_items.sql`
+   - `supabase/migrations/002_add_family_members.sql`
 3. Copy your project URL and anon key
 
 ### 3. Environment variables
@@ -67,8 +69,11 @@ Scan the QR code with **Expo Go** on your iPhone, or press `i` for the iOS simul
 - Undecided
 - Sell on eBay
 - Garage Sale
-- Child A wants it
-- Child B wants it
+- Give to Family Member (tag any family member by name)
+
+### Family Members
+
+You can add family members by name (e.g., "Sarah", "Mike", "Grandma June") and tag items with them. Family members can be added directly from the decision picker when cataloging or editing an item. The family member list is scoped to your household.
 
 ## Notes
 

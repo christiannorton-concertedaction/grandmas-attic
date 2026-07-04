@@ -46,6 +46,7 @@ export default function AddItemScreen() {
   const [confidence, setConfidence] = useState<AiConfidence | null>(null);
   const [notes, setNotes] = useState('');
   const [decision, setDecision] = useState<Decision>('undecided');
+  const [familyMemberId, setFamilyMemberId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,6 +96,7 @@ export default function AddItemScreen() {
         estimated_value_high: valueHigh,
         notes: notes.trim() || null,
         decision,
+        family_member_id: decision === 'family_member' ? familyMemberId : null,
         ai_confidence: confidence,
       });
 
@@ -118,6 +120,7 @@ export default function AddItemScreen() {
     setConfidence(null);
     setNotes('');
     setDecision('undecided');
+    setFamilyMemberId(null);
     setError(null);
   }
 
@@ -208,7 +211,14 @@ export default function AddItemScreen() {
 
           <View style={styles.section}>
             <Text style={styles.label}>What should we do with it?</Text>
-            <DecisionPicker value={decision} onChange={setDecision} />
+            <DecisionPicker 
+              value={decision} 
+              familyMemberId={familyMemberId}
+              onChange={(newDecision, newFamilyMemberId) => {
+                setDecision(newDecision);
+                setFamilyMemberId(newFamilyMemberId ?? null);
+              }} 
+            />
           </View>
 
           {error && <Text style={styles.error}>{error}</Text>}

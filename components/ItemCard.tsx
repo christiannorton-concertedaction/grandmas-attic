@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { DecisionBadge } from '@/components/DecisionPicker';
 import { getPhotoSignedUrl } from '@/lib/items';
+import { getFamilyMember } from '@/lib/familyMembers';
 import { formatValueRange, type Item } from '@/types/item';
 
 interface ItemCardProps {
@@ -21,6 +22,7 @@ export function ItemCard({ item }: ItemCardProps) {
   const router = useRouter();
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loadingPhoto, setLoadingPhoto] = useState(true);
+  const [familyMemberName, setFamilyMemberName] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +40,24 @@ export function ItemCard({ item }: ItemCardProps) {
       cancelled = true;
     };
   }, [item.photo_path]);
+
+  useEffect(() => {
+    if (item.decision === 'family_member' && item.family_member_id) {
+      let cancelled = false;
+      getFamilyMember(item.family_member_id)
+        .then((member) => {
+          if (!cancelled && member) setFamilyMemberName(member.name);
+        })
+        .catch(() => {
+          if (!cancelled) setFamilyMemberName(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setFamilyMemberName(null);
+    }
+  }, [item.decision, item.family_member_id]);
 
   return (
     <Pressable
@@ -60,7 +80,7 @@ export function ItemCard({ item }: ItemCardProps) {
         <Text style={styles.value}>
           {formatValueRange(item.estimated_value_low, item.estimated_value_high)}
         </Text>
-        <DecisionBadge decision={item.decision} compact />
+        <DecisionBadge decision={item.decision} familyMemberName={familyMemberName} compact />
       </View>
     </Pressable>
   );

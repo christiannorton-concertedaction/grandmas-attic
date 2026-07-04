@@ -2,10 +2,16 @@ export type Decision =
   | 'undecided'
   | 'ebay'
   | 'garage_sale'
-  | 'child_a'
-  | 'child_b';
+  | 'family_member';
 
 export type AiConfidence = 'low' | 'medium' | 'high';
+
+export interface FamilyMember {
+  id: string;
+  household_id: string;
+  name: string;
+  created_at: string;
+}
 
 export interface Item {
   id: string;
@@ -17,6 +23,7 @@ export interface Item {
   estimated_value_high: number | null;
   notes: string | null;
   decision: Decision;
+  family_member_id: string | null;
   ai_confidence: AiConfidence | null;
   created_at: string;
   updated_at: string;
@@ -39,6 +46,7 @@ export interface CreateItemInput {
   estimated_value_high: number | null;
   notes?: string | null;
   decision?: Decision;
+  family_member_id?: string | null;
   ai_confidence?: AiConfidence | null;
 }
 
@@ -46,24 +54,21 @@ export const DECISIONS: Decision[] = [
   'undecided',
   'ebay',
   'garage_sale',
-  'child_a',
-  'child_b',
+  'family_member',
 ];
 
 export const DECISION_LABELS: Record<Decision, string> = {
   undecided: 'Undecided',
   ebay: 'Sell on eBay',
   garage_sale: 'Garage Sale',
-  child_a: 'Child A wants it',
-  child_b: 'Child B wants it',
+  family_member: 'Give to Family',
 };
 
 export const DECISION_COLORS: Record<Decision, string> = {
   undecided: '#9CA3AF',
   ebay: '#2563EB',
   garage_sale: '#16A34A',
-  child_a: '#9333EA',
-  child_b: '#DB2777',
+  family_member: '#9333EA',
 };
 
 export function formatValueRange(
