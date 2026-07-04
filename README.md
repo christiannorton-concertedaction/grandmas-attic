@@ -24,6 +24,7 @@ npm install
    - `supabase/migrations/002_add_family_members.sql`
    - `supabase/migrations/003_add_prominence.sql`
    - `supabase/migrations/004_add_decision_options.sql`
+   - `supabase/migrations/005_add_analysis_status.sql`
 3. Copy your project URL and anon key
 
 ### 3. Environment variables
@@ -47,7 +48,10 @@ Install the [Supabase CLI](https://supabase.com/docs/guides/cli), then:
 supabase login
 supabase link --project-ref your-project-ref
 supabase secrets set OPENAI_API_KEY=sk-your-openai-key
+supabase secrets set EBAY_APP_ID=your-ebay-app-id  # Optional, for eBay pricing
 supabase functions deploy analyze-item
+supabase functions deploy analyze-batch
+supabase functions deploy ebay-pricing
 ```
 
 The edge function uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` automatically in production.
@@ -63,8 +67,17 @@ Scan the QR code with **Expo Go** on your iPhone, or press `i` for the iOS simul
 ## App flow
 
 1. **Items tab** — view everything you've cataloged
-2. **Add tab** — take a photo → AI analyzes it → add notes and pick a decision → save
-3. **Item detail** — edit notes, change decision, delete item
+2. **Add tab** — batch capture: take multiple photos with stories → analyze all at once (saves ~90% on AI costs)
+3. **Item detail** — edit notes, change decision, view eBay pricing, delete item
+
+## Cost Optimization
+
+The app is designed to minimize AI and API costs:
+
+- **Batch Analysis**: Queue multiple photos and analyze them together instead of one at a time
+- **GPT-4o-mini**: Uses the smaller, cheaper model (~90% less than GPT-4o)
+- **Image Compression**: Photos are compressed to 1024px before upload (reduces storage and API costs)
+- **eBay Pricing**: Real sold prices from eBay supplement AI estimates (free API)
 
 ## Decision options
 

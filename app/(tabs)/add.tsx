@@ -4,27 +4,32 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TextInput,
   Pressable,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { PhotoCapture } from '@/components/PhotoCapture';
-import { DecisionPicker } from '@/components/DecisionPicker';
 import { VoiceInput } from '@/components/VoiceInput';
 import { Colors } from '@/constants/Colors';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import {
-  analyzeItemPhoto,
-  createItem,
+  createPendingItem,
   uploadItemPhoto,
+  analyzePendingItems,
+  listPendingItems,
 } from '@/lib/items';
-import type { AiConfidence, Decision } from '@/types/item';
-import { formatValueRange } from '@/types/item';
 
-type Step = 'capture' | 'analyzing' | 'review';
+type Step = 'capture' | 'uploading' | 'queue' | 'analyzing';
+
+interface QueuedItem {
+  id: string;
+  localUri: string;
+  prominence: string;
+  status: 'uploading' | 'queued' | 'analyzing' | 'done' | 'error';
+}
 
 function generateId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
@@ -37,19 +42,9 @@ function generateId(): string {
 export default function AddItemScreen() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('capture');
-  const [localUri, setLocalUri] = useState<string | null>(null);
-  const [itemId, setItemId] = useState(() => generateId());
-  const [photoPath, setPhotoPath] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [valueLow, setValueLow] = useState<number | null>(null);
-  const [valueHigh, setValueHigh] = useState<number | null>(null);
-  const [confidence, setConfidence] = useState<AiConfidence | null>(null);
-  const [notes, setNotes] = useState('');
+  const [queue, setQueue] = useState<QueuedItem[]>([]);
   const [prominence, setProminence] = useState('');
-  const [decision, setDecision] = useState<Decision>('undecided');
-  const [familyMemberId, setFamilyMemberId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handlePhotoSelected(uri: string) {
@@ -61,72 +56,90 @@ export default function AddItemScreen() {
       return;
     }
 
-    setLocalUri(uri);
-    setError(null);
-    setStep('analyzing');
-
-    try {
-      const path = await uploadItemPhoto(uri, itemId);
-      setPhotoPath(path);
-
-      const result = await analyzeItemPhoto(path, prominence.trim() || undefined);
-      setTitle(result.title);
-      setDescription(result.description);
-      setValueLow(result.estimated_value_low);
-      setValueHigh(result.estimated_value_high);
-      setConfidence(result.confidence);
-      setStep('review');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze photo');
-      setStep('capture');
-    }
-  }
-
-  async function handleSave() {
-    if (!photoPath || !title.trim()) return;
-
-    setSaving(true);
-    setError(null);
-
-    try {
-      const item = await createItem({
-        id: itemId,
-        photo_path: photoPath,
-        title: title.trim(),
-        description: description.trim(),
-        estimated_value_low: valueLow,
-        estimated_value_high: valueHigh,
-        notes: notes.trim() || null,
-        prominence: prominence.trim() || null,
-        decision,
-        family_member_id: decision === 'family_member' ? familyMemberId : null,
-        ai_confidence: confidence,
-      });
-
-      router.replace(`/item/${item.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save item');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function handleReset() {
-    setItemId(generateId());
-    setStep('capture');
-    setLocalUri(null);
-    setPhotoPath(null);
-    setTitle('');
-    setDescription('');
-    setValueLow(null);
-    setValueHigh(null);
-    setConfidence(null);
-    setNotes('');
+    const itemId = generateId();
+    const currentProminence = prominence;
+    
+    const newItem: QueuedItem = {
+      id: itemId,
+      localUri: uri,
+      prominence: currentProminence,
+      status: 'uploading',
+    };
+    
+    setQueue(prev => [...prev, newItem]);
     setProminence('');
-    setDecision('undecided');
-    setFamilyMemberId(null);
     setError(null);
+
+    try {
+      const photoPath = await uploadItemPhoto(uri, itemId);
+      
+      await createPendingItem(photoPath, currentProminence || null);
+      
+      setQueue(prev => 
+        prev.map(item => 
+          item.id === itemId ? { ...item, status: 'queued' } : item
+        )
+      );
+    } catch (err) {
+      setQueue(prev => 
+        prev.map(item => 
+          item.id === itemId ? { ...item, status: 'error' } : item
+        )
+      );
+      setError(err instanceof Error ? err.message : 'Failed to upload photo');
+    }
   }
+
+  async function handleAnalyzeAll() {
+    if (queue.length === 0) return;
+    
+    setAnalyzing(true);
+    setStep('analyzing');
+    setError(null);
+
+    try {
+      const result = await analyzePendingItems();
+      
+      if (result.processed > 0) {
+        Alert.alert(
+          'Analysis Complete',
+          `${result.processed} item${result.processed > 1 ? 's' : ''} analyzed successfully.${result.failed > 0 ? ` ${result.failed} failed.` : ''}`,
+          [{ text: 'View Items', onPress: () => router.replace('/(tabs)') }]
+        );
+      } else if (result.failed > 0) {
+        Alert.alert('Analysis Failed', 'Could not analyze items. Please try again.');
+        setStep('capture');
+      } else {
+        Alert.alert('No Items', 'No pending items to analyze.');
+        setStep('capture');
+      }
+      
+      setQueue([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze items');
+      setStep('capture');
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  function handleRemoveFromQueue(id: string) {
+    setQueue(prev => prev.filter(item => item.id !== id));
+  }
+
+  function handleClearQueue() {
+    Alert.alert(
+      'Clear Queue?',
+      'This will remove all queued photos. They will need to be re-captured.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', style: 'destructive', onPress: () => setQueue([]) },
+      ]
+    );
+  }
+
+  const queuedCount = queue.filter(i => i.status === 'queued').length;
+  const uploadingCount = queue.filter(i => i.status === 'uploading').length;
 
   if (!isSupabaseConfigured) {
     return (
@@ -149,8 +162,8 @@ export default function AddItemScreen() {
       {step === 'capture' && (
         <>
           <Text style={styles.intro}>
-            Photograph something you might sell. Grandma will take a look and
-            suggest what it is and what it might be worth.
+            Take photos of items to catalog. Add the story for each item, then
+            analyze them all at once to save costs.
           </Text>
 
           <VoiceInput
@@ -161,105 +174,84 @@ export default function AddItemScreen() {
             placeholder="e.g., This belonged to my grandmother in the 1940s..."
           />
 
-          <PhotoCapture key={itemId} onPhotoSelected={handlePhotoSelected} />
+          <PhotoCapture onPhotoSelected={handlePhotoSelected} />
+          
           {error && <Text style={styles.error}>{error}</Text>}
+
+          {queue.length > 0 && (
+            <View style={styles.queueSection}>
+              <View style={styles.queueHeader}>
+                <Text style={styles.queueTitle}>
+                  Photo Queue ({queuedCount} ready{uploadingCount > 0 ? `, ${uploadingCount} uploading` : ''})
+                </Text>
+                <Pressable onPress={handleClearQueue}>
+                  <Text style={styles.clearText}>Clear</Text>
+                </Pressable>
+              </View>
+              
+              <View style={styles.queueGrid}>
+                {queue.map((item) => (
+                  <View key={item.id} style={styles.queueItem}>
+                    <Image 
+                      source={{ uri: item.localUri }} 
+                      style={styles.queueThumb} 
+                      contentFit="cover" 
+                    />
+                    {item.status === 'uploading' && (
+                      <View style={styles.queueOverlay}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      </View>
+                    )}
+                    {item.status === 'error' && (
+                      <View style={[styles.queueOverlay, styles.queueError]}>
+                        <FontAwesome name="exclamation-circle" size={20} color="#FFFFFF" />
+                      </View>
+                    )}
+                    {item.status === 'queued' && (
+                      <Pressable 
+                        style={styles.removeButton}
+                        onPress={() => handleRemoveFromQueue(item.id)}
+                      >
+                        <FontAwesome name="times" size={12} color="#FFFFFF" />
+                      </Pressable>
+                    )}
+                    {item.prominence && (
+                      <View style={styles.hasStoryBadge}>
+                        <FontAwesome name="book" size={10} color="#FFFFFF" />
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+
+              <Pressable
+                style={[styles.analyzeButton, queuedCount === 0 && styles.disabled]}
+                onPress={handleAnalyzeAll}
+                disabled={queuedCount === 0 || analyzing}
+              >
+                <FontAwesome name="magic" size={18} color="#FFFFFF" style={styles.buttonIcon} />
+                <Text style={styles.analyzeButtonText}>
+                  Analyze {queuedCount} Item{queuedCount !== 1 ? 's' : ''}
+                </Text>
+              </Pressable>
+              
+              <Text style={styles.costHint}>
+                Batch analysis saves ~90% vs individual lookups
+              </Text>
+            </View>
+          )}
         </>
       )}
 
       {step === 'analyzing' && (
         <View style={styles.analyzing}>
-          {localUri && (
-            <Image source={{ uri: localUri }} style={styles.preview} contentFit="cover" />
-          )}
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.analyzingText}>Grandma&apos;s looking it up...</Text>
+          <Text style={styles.analyzingText}>Analyzing {queue.length} items...</Text>
+          <Text style={styles.analyzingHint}>
+            This uses AI to identify items and estimate values.
+            It may take a minute.
+          </Text>
         </View>
-      )}
-
-      {step === 'review' && (
-        <>
-          {localUri && (
-            <Image source={{ uri: localUri }} style={styles.preview} contentFit="cover" />
-          )}
-
-          <View style={styles.section}>
-            <Text style={styles.label}>Title</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Item name"
-              placeholderTextColor={Colors.textMuted}
-            />
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.label}>Description</Text>
-            <Text style={styles.description}>{description}</Text>
-            <Text style={styles.value}>
-              Estimated value: {formatValueRange(valueLow, valueHigh)}
-            </Text>
-            {confidence && (
-              <Text style={styles.confidence}>
-                Confidence: {confidence}
-              </Text>
-            )}
-            <Text style={styles.disclaimer}>
-              AI estimates are rough guides, not professional appraisals.
-            </Text>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.label}>Your notes</Text>
-            <TextInput
-              style={[styles.input, styles.notesInput]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Add any notes (condition, memories, etc.)"
-              placeholderTextColor={Colors.textMuted}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
-
-          <VoiceInput
-            value={prominence}
-            onChangeText={setProminence}
-            label="Story & History"
-            hint={prominence.trim() ? undefined : "Record this item's story — where it came from, who owned it, why it matters."}
-            placeholder="e.g., This was Grandpa Joe's watch from WWII..."
-          />
-
-          <View style={styles.section}>
-            <Text style={styles.label}>What should we do with it?</Text>
-            <DecisionPicker 
-              value={decision} 
-              familyMemberId={familyMemberId}
-              onChange={(newDecision, newFamilyMemberId) => {
-                setDecision(newDecision);
-                setFamilyMemberId(newFamilyMemberId ?? null);
-              }} 
-            />
-          </View>
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <Pressable
-            style={[styles.saveButton, saving && styles.disabled]}
-            onPress={handleSave}
-            disabled={saving || !title.trim()}
-          >
-            {saving ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save to Attic</Text>
-            )}
-          </Pressable>
-
-          <Pressable style={styles.resetButton} onPress={handleReset} disabled={saving}>
-            <Text style={styles.resetButtonText}>Start over</Text>
-          </Pressable>
-        </>
       )}
     </ScrollView>
   );
@@ -304,87 +296,114 @@ const styles = StyleSheet.create({
   analyzing: {
     alignItems: 'center',
     gap: 16,
-    paddingVertical: 32,
+    paddingVertical: 48,
   },
   analyzingText: {
     color: Colors.text,
     fontSize: 18,
     fontWeight: '500',
   },
-  preview: {
-    borderRadius: 16,
-    height: 220,
-    width: '100%',
-  },
-  section: {
-    gap: 8,
-  },
-  label: {
-    color: Colors.text,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  input: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    borderWidth: 1,
-    color: Colors.text,
-    fontSize: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  notesInput: {
-    minHeight: 100,
-    paddingTop: 12,
-  },
-  description: {
-    color: Colors.text,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  value: {
-    color: Colors.primaryDark,
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  confidence: {
+  analyzingHint: {
     color: Colors.textMuted,
-    fontSize: 13,
-    marginTop: 2,
-    textTransform: 'capitalize',
-  },
-  disclaimer: {
-    color: Colors.textMuted,
-    fontSize: 12,
-    fontStyle: 'italic',
-    marginTop: 8,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 24,
   },
   error: {
     color: Colors.error,
     fontSize: 14,
     lineHeight: 20,
   },
-  saveButton: {
+  queueSection: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  queueHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  queueTitle: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  clearText: {
+    color: Colors.error,
+    fontSize: 14,
+  },
+  queueGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  queueItem: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  queueThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  queueOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  queueError: {
+    backgroundColor: 'rgba(220,38,38,0.7)',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hasStoryBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  analyzeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.primary,
     borderRadius: 12,
-    marginTop: 8,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    gap: 8,
   },
-  saveButtonText: {
+  buttonIcon: {
+    marginRight: 4,
+  },
+  analyzeButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
-  resetButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  resetButtonText: {
+  costHint: {
     color: Colors.textMuted,
-    fontSize: 15,
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   disabled: {
     opacity: 0.6,

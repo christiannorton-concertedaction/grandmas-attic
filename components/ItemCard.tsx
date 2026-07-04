@@ -59,6 +59,9 @@ export function ItemCard({ item }: ItemCardProps) {
     }
   }, [item.decision, item.family_member_id]);
 
+  const isPending = item.analysis_status === 'pending' || item.analysis_status === 'analyzing';
+  const isFailed = item.analysis_status === 'failed';
+
   return (
     <Pressable
       style={styles.card}
@@ -72,15 +75,28 @@ export function ItemCard({ item }: ItemCardProps) {
         ) : (
           <Text style={styles.placeholder}>📷</Text>
         )}
+        {isPending && (
+          <View style={styles.pendingOverlay}>
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          </View>
+        )}
       </View>
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={2}>
-          {item.title}
+          {item.title || (isPending ? 'Analyzing...' : 'Unknown item')}
         </Text>
-        <Text style={styles.value}>
-          {formatValueRange(item.estimated_value_low, item.estimated_value_high)}
-        </Text>
-        <DecisionBadge decision={item.decision} familyMemberName={familyMemberName} compact />
+        {isFailed ? (
+          <Text style={styles.errorText}>Analysis failed</Text>
+        ) : isPending ? (
+          <Text style={styles.pendingText}>Waiting for analysis</Text>
+        ) : (
+          <>
+            <Text style={styles.value}>
+              {formatValueRange(item.estimated_value_low, item.estimated_value_high)}
+            </Text>
+            <DecisionBadge decision={item.decision} familyMemberName={familyMemberName} compact />
+          </>
+        )}
       </View>
     </Pressable>
   );
@@ -127,5 +143,20 @@ const styles = StyleSheet.create({
   value: {
     color: Colors.textMuted,
     fontSize: 14,
+  },
+  pendingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingText: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 13,
   },
 });

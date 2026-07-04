@@ -9,6 +9,8 @@ export type Decision =
 
 export type AiConfidence = 'low' | 'medium' | 'high';
 
+export type AnalysisStatus = 'pending' | 'analyzing' | 'completed' | 'failed';
+
 export interface FamilyMember {
   id: string;
   household_id: string;
@@ -20,7 +22,7 @@ export interface Item {
   id: string;
   household_id: string;
   photo_path: string;
-  title: string;
+  title: string | null;
   description: string;
   estimated_value_low: number | null;
   estimated_value_high: number | null;
@@ -29,6 +31,8 @@ export interface Item {
   decision: Decision;
   family_member_id: string | null;
   ai_confidence: AiConfidence | null;
+  analysis_status: AnalysisStatus;
+  analysis_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,15 +48,16 @@ export interface AnalyzeResult {
 export interface CreateItemInput {
   id?: string;
   photo_path: string;
-  title: string;
-  description: string;
-  estimated_value_low: number | null;
-  estimated_value_high: number | null;
+  title?: string | null;
+  description?: string;
+  estimated_value_low?: number | null;
+  estimated_value_high?: number | null;
   notes?: string | null;
   prominence?: string | null;
   decision?: Decision;
   family_member_id?: string | null;
   ai_confidence?: AiConfidence | null;
+  analysis_status?: AnalysisStatus;
 }
 
 export const DECISIONS: Decision[] = [
