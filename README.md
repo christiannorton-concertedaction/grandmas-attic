@@ -23,6 +23,7 @@ npm install
    - `supabase/migrations/001_create_items.sql`
    - `supabase/migrations/002_add_family_members.sql`
    - `supabase/migrations/003_add_prominence.sql`
+   - `supabase/migrations/004_add_decision_options.sql`
 3. Copy your project URL and anon key
 
 ### 3. Environment variables
@@ -68,8 +69,11 @@ Scan the QR code with **Expo Go** on your iPhone, or press `i` for the iOS simul
 ## Decision options
 
 - Undecided
+- Keep
 - Sell on eBay
 - Garage Sale
+- Donate
+- Trash
 - Give to Family Member (tag any family member by name)
 
 ### Family Members

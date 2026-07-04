@@ -112,7 +112,7 @@ export function DecisionPicker({
     );
   }
 
-  const baseOptions: Decision[] = ['undecided', 'ebay', 'garage_sale'];
+  const baseOptions: Decision[] = ['undecided', 'keep', 'ebay', 'garage_sale', 'donate', 'trash'];
 
   return (
     <View style={styles.picker}>

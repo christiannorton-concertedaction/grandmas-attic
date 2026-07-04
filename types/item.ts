@@ -1,7 +1,10 @@
 export type Decision =
   | 'undecided'
+  | 'keep'
   | 'ebay'
   | 'garage_sale'
+  | 'donate'
+  | 'trash'
   | 'family_member';
 
 export type AiConfidence = 'low' | 'medium' | 'high';
@@ -54,22 +57,31 @@ export interface CreateItemInput {
 
 export const DECISIONS: Decision[] = [
   'undecided',
+  'keep',
   'ebay',
   'garage_sale',
+  'donate',
+  'trash',
   'family_member',
 ];
 
 export const DECISION_LABELS: Record<Decision, string> = {
   undecided: 'Undecided',
+  keep: 'Keep',
   ebay: 'Sell on eBay',
   garage_sale: 'Garage Sale',
+  donate: 'Donate',
+  trash: 'Trash',
   family_member: 'Give to Family',
 };
 
 export const DECISION_COLORS: Record<Decision, string> = {
   undecided: '#9CA3AF',
+  keep: '#059669',
   ebay: '#2563EB',
   garage_sale: '#16A34A',
+  donate: '#D97706',
+  trash: '#DC2626',
   family_member: '#9333EA',
 };
 
