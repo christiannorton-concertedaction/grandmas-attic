@@ -45,6 +45,7 @@ export async function createItem(input: CreateItemInput): Promise<Item> {
       estimated_value_low: input.estimated_value_low,
       estimated_value_high: input.estimated_value_high,
       notes: input.notes ?? null,
+      prominence: input.prominence ?? null,
       decision: input.decision ?? 'undecided',
       family_member_id: input.family_member_id ?? null,
       ai_confidence: input.ai_confidence ?? null,
@@ -64,6 +65,23 @@ export async function updateItemNotes(
   const { data, error } = await supabase
     .from('items')
     .update({ notes })
+    .eq('id', id)
+    .eq('household_id', householdId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data as Item;
+}
+
+export async function updateItemProminence(
+  id: string,
+  prominence: string
+): Promise<Item> {
+  const householdId = await getHouseholdId();
+  const { data, error } = await supabase
+    .from('items')
+    .update({ prominence })
     .eq('id', id)
     .eq('household_id', householdId)
     .select('*')

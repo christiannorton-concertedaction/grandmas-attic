@@ -19,6 +19,7 @@ import {
   getPhotoSignedUrl,
   updateItemDecision,
   updateItemNotes,
+  updateItemProminence,
 } from '@/lib/items';
 import { formatValueRange, type Decision, type Item } from '@/types/item';
 
@@ -28,8 +29,10 @@ export default function ItemDetailScreen() {
   const [item, setItem] = useState<Item | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [prominence, setProminence] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingNotes, setSavingNotes] = useState(false);
+  const [savingProminence, setSavingProminence] = useState(false);
   const [updatingDecision, setUpdatingDecision] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +53,7 @@ export default function ItemDetailScreen() {
 
       setItem(data);
       setNotes(data.notes ?? '');
+      setProminence(data.prominence ?? '');
 
       const url = await getPhotoSignedUrl(data.photo_path);
       setPhotoUrl(url);
@@ -80,6 +84,23 @@ export default function ItemDetailScreen() {
       );
     } finally {
       setSavingNotes(false);
+    }
+  }
+
+  async function handleProminenceBlur() {
+    if (!item || prominence === (item.prominence ?? '')) return;
+
+    setSavingProminence(true);
+    try {
+      const updated = await updateItemProminence(item.id, prominence);
+      setItem(updated);
+    } catch (err) {
+      Alert.alert(
+        'Error',
+        err instanceof Error ? err.message : 'Failed to save story'
+      );
+    } finally {
+      setSavingProminence(false);
     }
   }
 
@@ -176,7 +197,7 @@ export default function ItemDetailScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.notesHeader}>
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Notes</Text>
           {savingNotes && (
             <ActivityIndicator size="small" color={Colors.primary} />
@@ -188,6 +209,28 @@ export default function ItemDetailScreen() {
           onChangeText={setNotes}
           onBlur={handleNotesBlur}
           placeholder="Add notes about this item..."
+          placeholderTextColor={Colors.textMuted}
+          multiline
+          textAlignVertical="top"
+        />
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Story & History</Text>
+          {savingProminence && (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          )}
+        </View>
+        <Text style={styles.prominenceHint}>
+          Record this item's story — where it came from, who owned it, why it matters.
+        </Text>
+        <TextInput
+          style={styles.prominenceInput}
+          value={prominence}
+          onChangeText={setProminence}
+          onBlur={handleProminenceBlur}
+          placeholder="e.g., This was Grandpa Joe's watch from WWII..."
           placeholderTextColor={Colors.textMuted}
           multiline
           textAlignVertical="top"
@@ -299,7 +342,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  notesHeader: {
+  sectionHeader: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
@@ -311,7 +354,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: Colors.text,
     fontSize: 16,
-    minHeight: 120,
+    minHeight: 100,
+    padding: 14,
+  },
+  prominenceHint: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  prominenceInput: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    color: Colors.text,
+    fontSize: 16,
+    minHeight: 140,
     padding: 14,
   },
   deleteButton: {

@@ -45,6 +45,7 @@ export default function AddItemScreen() {
   const [valueHigh, setValueHigh] = useState<number | null>(null);
   const [confidence, setConfidence] = useState<AiConfidence | null>(null);
   const [notes, setNotes] = useState('');
+  const [prominence, setProminence] = useState('');
   const [decision, setDecision] = useState<Decision>('undecided');
   const [familyMemberId, setFamilyMemberId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -95,6 +96,7 @@ export default function AddItemScreen() {
         estimated_value_low: valueLow,
         estimated_value_high: valueHigh,
         notes: notes.trim() || null,
+        prominence: prominence.trim() || null,
         decision,
         family_member_id: decision === 'family_member' ? familyMemberId : null,
         ai_confidence: confidence,
@@ -119,6 +121,7 @@ export default function AddItemScreen() {
     setValueHigh(null);
     setConfidence(null);
     setNotes('');
+    setProminence('');
     setDecision('undecided');
     setFamilyMemberId(null);
     setError(null);
@@ -203,6 +206,22 @@ export default function AddItemScreen() {
               value={notes}
               onChangeText={setNotes}
               placeholder="Add any notes (condition, memories, etc.)"
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Story & History</Text>
+            <Text style={styles.prominenceHint}>
+              Record this item's story — where it came from, who owned it, why it matters to the family.
+            </Text>
+            <TextInput
+              style={[styles.input, styles.prominenceInput]}
+              value={prominence}
+              onChangeText={setProminence}
+              placeholder="e.g., This was Grandpa Joe's watch from WWII. He wore it every day until..."
               placeholderTextColor={Colors.textMuted}
               multiline
               textAlignVertical="top"
@@ -315,6 +334,16 @@ const styles = StyleSheet.create({
   },
   notesInput: {
     minHeight: 100,
+    paddingTop: 12,
+  },
+  prominenceHint: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  prominenceInput: {
+    minHeight: 120,
     paddingTop: 12,
   },
   description: {

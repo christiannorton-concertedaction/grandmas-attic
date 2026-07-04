@@ -22,6 +22,7 @@ export interface Item {
   estimated_value_low: number | null;
   estimated_value_high: number | null;
   notes: string | null;
+  prominence: string | null;
   decision: Decision;
   family_member_id: string | null;
   ai_confidence: AiConfidence | null;
@@ -45,6 +46,7 @@ export interface CreateItemInput {
   estimated_value_low: number | null;
   estimated_value_high: number | null;
   notes?: string | null;
+  prominence?: string | null;
   decision?: Decision;
   family_member_id?: string | null;
   ai_confidence?: AiConfidence | null;
