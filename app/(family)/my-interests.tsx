@@ -11,7 +11,7 @@ import { Colors } from '@/constants/Colors';
 import { FamilyItemCard } from '@/components/FamilyItemCard';
 import { EmptyState } from '@/components/EmptyState';
 import { listItems } from '@/lib/items';
-import { getFamilyMemberIdentity } from '@/lib/userRole';
+import { getMyFamilyMember } from '@/lib/userRole';
 import { getInterestedItemIds } from '@/lib/familyInteractions';
 import type { Item } from '@/types/item';
 
@@ -23,7 +23,8 @@ export default function MyInterestsScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const memberId = await getFamilyMemberIdentity();
+      const member = await getMyFamilyMember();
+      const memberId = member?.id ?? null;
       setMyMemberId(memberId);
       
       if (!memberId) {

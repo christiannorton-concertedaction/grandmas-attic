@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.grandmasattic.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Take photos of items in your home to catalog and price them.",
         "NSPhotoLibraryUsageDescription": "Choose photos of items you want to catalog and sell.",
@@ -37,6 +38,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
+      "expo-web-browser",
       [
         "expo-image-picker",
         {

@@ -5,71 +5,61 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Colors } from '@/constants/Colors';
-import { setUserRole, type UserRole } from '@/lib/userRole';
-import {
-  markHouseholdOwner,
-  hasHouseholdAccess,
-  isHouseholdOwner,
-  hasJoinedHousehold,
-  leaveHousehold,
-} from '@/lib/household';
+import { createHousehold } from '@/lib/household';
+import { signOut } from '@/lib/auth';
 
 export default function RoleSelectScreen() {
   const router = useRouter();
-  const [selecting, setSelecting] = useState<UserRole | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  async function handleSelectRole(role: UserRole) {
-    setSelecting(role);
+  async function handleCreateHousehold() {
+    setCreating(true);
     try {
-      await setUserRole(role);
-      if (role === 'grandma') {
-        // A device that joined someone else's household via invite must not
-        // become that household's owner. Detach first so a fresh household
-        // is created for this device instead.
-        const [owner, joined] = await Promise.all([
-          isHouseholdOwner(),
-          hasJoinedHousehold(),
-        ]);
-        if (joined && !owner) {
-          await leaveHousehold();
-        }
-        await markHouseholdOwner();
-        router.replace('/(tabs)');
-      } else {
-        // Family members must join a household via invite code unless this
-        // device already has access (it's the owner's phone or joined before).
-        const hasAccess = await hasHouseholdAccess();
-        if (hasAccess) {
-          router.replace('/family-identity');
-        } else {
-          router.replace('/join-household');
-        }
-      }
+      await createHousehold();
+      router.replace('/(tabs)');
     } catch (err) {
-      console.error('Failed to set role:', err);
-      setSelecting(null);
+      Alert.alert(
+        'Error',
+        err instanceof Error ? err.message : 'Failed to create household'
+      );
+      setCreating(false);
+    }
+  }
+
+  function handleJoin() {
+    router.push('/join-household');
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+      router.replace('/sign-in');
+    } catch (err) {
+      console.error('Failed to sign out:', err);
     }
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Welcome to</Text>
-        <Text style={styles.appName}>Grandma's Attic</Text>
-        <Text style={styles.subtitle}>Who are you?</Text>
+        <Text style={styles.title}>Get Started</Text>
+        <Text style={styles.subtitle}>
+          Are you cataloging your home, or joining a family member's attic?
+        </Text>
       </View>
 
       <View style={styles.options}>
         <Pressable
-          style={[styles.option, selecting === 'grandma' && styles.optionSelected]}
-          onPress={() => handleSelectRole('grandma')}
-          disabled={selecting !== null}
+          style={styles.option}
+          onPress={handleCreateHousehold}
+          disabled={creating}
         >
-          {selecting === 'grandma' ? (
+          {creating ? (
             <ActivityIndicator size="large" color={Colors.primary} />
           ) : (
             <>
@@ -78,32 +68,28 @@ export default function RoleSelectScreen() {
               </View>
               <Text style={styles.optionTitle}>I'm the Owner</Text>
               <Text style={styles.optionDesc}>
-                Catalog items, get AI valuations, and decide what to do with everything
+                Create your household, catalog items, get AI valuations, and
+                invite family to browse
               </Text>
             </>
           )}
         </Pressable>
 
-        <Pressable
-          style={[styles.option, selecting === 'family' && styles.optionSelected]}
-          onPress={() => handleSelectRole('family')}
-          disabled={selecting !== null}
-        >
-          {selecting === 'family' ? (
-            <ActivityIndicator size="large" color={Colors.primary} />
-          ) : (
-            <>
-              <View style={styles.iconWrap}>
-                <FontAwesome name="users" size={40} color={Colors.primary} />
-              </View>
-              <Text style={styles.optionTitle}>I'm Family</Text>
-              <Text style={styles.optionDesc}>
-                Browse items, leave notes, and mark what you're interested in
-              </Text>
-            </>
-          )}
+        <Pressable style={styles.option} onPress={handleJoin} disabled={creating}>
+          <View style={styles.iconWrap}>
+            <FontAwesome name="users" size={40} color={Colors.primary} />
+          </View>
+          <Text style={styles.optionTitle}>I'm Family</Text>
+          <Text style={styles.optionDesc}>
+            Join with an invite code to browse items, leave notes, and mark
+            what you're interested in
+          </Text>
         </Pressable>
       </View>
+
+      <Pressable style={styles.signOutButton} onPress={handleSignOut} disabled={creating}>
+        <Text style={styles.signOutText}>Sign out</Text>
+      </Pressable>
     </View>
   );
 }
@@ -117,23 +103,19 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   title: {
-    color: Colors.textMuted,
-    fontSize: 18,
-  },
-  appName: {
     color: Colors.primaryDark,
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '700',
-    marginTop: 4,
-    marginBottom: 24,
+    marginBottom: 12,
   },
   subtitle: {
-    color: Colors.text,
-    fontSize: 20,
-    fontWeight: '500',
+    color: Colors.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
   },
   options: {
     gap: 16,
@@ -147,10 +129,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 180,
     justifyContent: 'center',
-  },
-  optionSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: '#F3EAD6',
   },
   iconWrap: {
     width: 80,
@@ -172,5 +150,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  signOutButton: {
+    alignItems: 'center',
+    marginTop: 32,
+    padding: 12,
+  },
+  signOutText: {
+    color: Colors.textMuted,
+    fontSize: 14,
   },
 });

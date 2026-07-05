@@ -12,31 +12,38 @@ import {
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Colors } from '@/constants/Colors';
-import { clearUserRole } from '@/lib/userRole';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { getOrCreateInviteCode, regenerateInviteCode } from '@/lib/invites';
+import { getUser, getDisplayName, signOut } from '@/lib/auth';
 
 export default function OwnerSettingsScreen() {
   const router = useRouter();
-  const [switching, setSwitching] = useState(false);
+  const [accountName, setAccountName] = useState('');
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [loadingCode, setLoadingCode] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
-    loadInviteCode();
+    loadData();
   }, []);
 
-  async function loadInviteCode() {
+  async function loadData() {
     if (!isSupabaseConfigured) {
       setLoadingCode(false);
       return;
     }
     try {
-      const code = await getOrCreateInviteCode();
+      const [code, user] = await Promise.all([
+        getOrCreateInviteCode(),
+        getUser(),
+      ]);
       setInviteCode(code);
+      setAccountName(getDisplayName(user));
+      setAccountEmail(user?.email ?? null);
     } catch (err) {
-      console.error('Failed to load invite code:', err);
+      console.error('Failed to load settings:', err);
     } finally {
       setLoadingCode(false);
     }
@@ -46,7 +53,7 @@ export default function OwnerSettingsScreen() {
     if (!inviteCode) return;
     try {
       await Share.share({
-        message: `Join our family's Grandma's Attic! Open the app, choose "I'm Family", and enter this invite code: ${inviteCode}`,
+        message: `Join our family's Grandma's Attic! Download the app, sign in, choose "I'm Family", and enter this invite code: ${inviteCode}`,
       });
     } catch {
       // User dismissed the share sheet; nothing to do.
@@ -80,40 +87,37 @@ export default function OwnerSettingsScreen() {
     );
   }
 
-  function handleSwitchRole() {
-    Alert.alert(
-      'Switch Role?',
-      'This will take you back to the role selection screen.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Switch',
-          onPress: async () => {
-            setSwitching(true);
-            try {
-              await clearUserRole();
-              router.replace('/role-select');
-            } catch (err) {
-              console.error('Failed to switch role:', err);
-              setSwitching(false);
-            }
-          },
+  function handleSignOut() {
+    Alert.alert('Sign Out?', 'Your items are safe. You can sign back in anytime.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        onPress: async () => {
+          setSigningOut(true);
+          try {
+            await signOut();
+            router.replace('/sign-in');
+          } catch (err) {
+            console.error('Failed to sign out:', err);
+            setSigningOut(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Your Role</Text>
+        <Text style={styles.sectionTitle}>Your Account</Text>
         <View style={styles.roleCard}>
           <View style={styles.roleIcon}>
             <FontAwesome name="home" size={24} color={Colors.primary} />
           </View>
           <View style={styles.roleInfo}>
-            <Text style={styles.roleName}>Owner</Text>
-            <Text style={styles.roleLabel}>Full access to all features</Text>
+            <Text style={styles.roleName}>{accountName || 'Owner'}</Text>
+            {accountEmail && <Text style={styles.roleLabel}>{accountEmail}</Text>}
+            <Text style={styles.roleLabel}>Household Owner</Text>
           </View>
         </View>
       </View>
@@ -154,26 +158,26 @@ export default function OwnerSettingsScreen() {
             </>
           ) : (
             <Text style={styles.codeError}>
-              Couldn't load the invite code. Pull to refresh or check your
-              connection.
+              Couldn't load the invite code. Check your connection and reopen
+              this screen.
             </Text>
           )}
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>App Settings</Text>
+        <Text style={styles.sectionTitle}>Account</Text>
         <Pressable
-          style={[styles.optionButton, switching && styles.disabled]}
-          onPress={handleSwitchRole}
-          disabled={switching}
+          style={[styles.optionButton, signingOut && styles.disabled]}
+          onPress={handleSignOut}
+          disabled={signingOut}
         >
-          {switching ? (
+          {signingOut ? (
             <ActivityIndicator size="small" color={Colors.primary} />
           ) : (
             <>
-              <FontAwesome name="exchange" size={18} color={Colors.primary} />
-              <Text style={styles.optionButtonText}>Switch to Family Mode</Text>
+              <FontAwesome name="power-off" size={18} color={Colors.primary} />
+              <Text style={styles.optionButtonText}>Sign Out</Text>
             </>
           )}
         </Pressable>

@@ -12,7 +12,6 @@ import {
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Colors } from '@/constants/Colors';
-import { clearUserRole } from '@/lib/userRole';
 import { joinHouseholdWithCode } from '@/lib/invites';
 
 export default function JoinHouseholdScreen() {
@@ -29,7 +28,7 @@ export default function JoinHouseholdScreen() {
     try {
       const joined = await joinHouseholdWithCode(code);
       if (joined) {
-        router.replace('/family-identity');
+        router.replace('/(family)');
       } else {
         setError(
           "That code didn't match a household. Double-check it with the owner and try again."
@@ -95,14 +94,11 @@ export default function JoinHouseholdScreen() {
 
         <Pressable
           style={styles.backButton}
-          onPress={async () => {
-            await clearUserRole();
-            router.replace('/role-select');
-          }}
+          onPress={() => router.back()}
           disabled={joining}
         >
           <FontAwesome name="arrow-left" size={14} color={Colors.textMuted} />
-          <Text style={styles.backButtonText}>Back to role selection</Text>
+          <Text style={styles.backButtonText}>Back</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>

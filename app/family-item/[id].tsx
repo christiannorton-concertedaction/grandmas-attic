@@ -16,7 +16,7 @@ import { DecisionBadge } from '@/components/DecisionPicker';
 import { Colors } from '@/constants/Colors';
 import { getItem, getPhotoSignedUrl } from '@/lib/items';
 import { getFamilyMember } from '@/lib/familyMembers';
-import { getFamilyMemberIdentity } from '@/lib/userRole';
+import { getMyFamilyMember } from '@/lib/userRole';
 import {
   hasInterest,
   addItemInterest,
@@ -51,11 +51,12 @@ export default function FamilyItemDetailScreen() {
     setError(null);
 
     try {
-      const [data, memberId] = await Promise.all([
+      const [data, myMember] = await Promise.all([
         getItem(id),
-        getFamilyMemberIdentity(),
+        getMyFamilyMember(),
       ]);
       
+      const memberId = myMember?.id ?? null;
       setMyMemberId(memberId);
       
       if (!data) {

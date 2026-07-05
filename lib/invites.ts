@@ -1,9 +1,5 @@
 import { supabase } from './supabase';
-import {
-  getHouseholdId,
-  setHouseholdId,
-  markJoinedHousehold,
-} from './household';
+import { getHouseholdId, clearMembershipCache } from './household';
 
 // No ambiguous characters (0/O, 1/I/L) so codes are easy to read aloud.
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -33,7 +29,7 @@ async function createInvite(householdId: string): Promise<string> {
 
 /**
  * Returns the household's invite code, creating one if none exists yet.
- * Only used on the owner's device.
+ * RLS restricts this to the household owner.
  */
 export async function getOrCreateInviteCode(): Promise<string> {
   const householdId = await getHouseholdId();
@@ -51,7 +47,7 @@ export async function getOrCreateInviteCode(): Promise<string> {
 
 /**
  * Invalidates the current invite code and issues a new one. Anyone who was
- * given the old code can no longer join with it (already-joined devices
+ * given the old code can no longer join with it (already-joined members
  * keep their access).
  */
 export async function regenerateInviteCode(): Promise<string> {
@@ -66,24 +62,33 @@ export async function regenerateInviteCode(): Promise<string> {
 }
 
 /**
- * Joins the household that the code belongs to. Returns false if the code
- * is invalid. On success the device's household id is switched to the
- * owner's household.
+ * Joins a household using an invite code. Validation happens in the
+ * join-household edge function (service role), so invite codes can never
+ * be read or enumerated by clients. Returns false for an invalid code.
  */
 export async function joinHouseholdWithCode(code: string): Promise<boolean> {
   const normalized = code.trim().toUpperCase();
   if (normalized.length !== CODE_LENGTH) return false;
 
-  const { data, error } = await supabase
-    .from('household_invites')
-    .select('household_id')
-    .eq('code', normalized)
-    .maybeSingle();
+  const { data, error } = await supabase.functions.invoke('join-household', {
+    body: { code: normalized },
+  });
 
-  if (error) throw error;
-  if (!data) return false;
+  if (error) {
+    // supabase-js surfaces non-2xx responses as FunctionsHttpError with the
+    // JSON body available on the context response.
+    const context = (error as { context?: Response }).context;
+    let body: { error?: string } | null = null;
+    if (context) {
+      body = await context.json().catch(() => null);
+    }
+    if (body?.error === 'invalid_code') return false;
+    throw new Error(body?.error ?? 'Failed to join. Please try again.');
+  }
 
-  await setHouseholdId(data.household_id as string);
-  await markJoinedHousehold();
+  if (data?.error === 'invalid_code') return false;
+  if (data?.error) throw new Error(data.error);
+
+  clearMembershipCache();
   return true;
 }

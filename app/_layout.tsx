@@ -3,72 +3,87 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/Colors';
-import { getUserRole, getFamilyMemberIdentity, type UserRole } from '@/lib/userRole';
-import { hasHouseholdAccess, markHouseholdOwner } from '@/lib/household';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { getSession, onAuthStateChange } from '@/lib/auth';
+import { getMyMembership, clearMembershipCache } from '@/lib/household';
 
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const [isLoading, setIsLoading] = useState(true);
+  const [authVersion, setAuthVersion] = useState(0);
 
-  // Re-read the role from storage on every navigation so the guard never
-  // acts on stale data (e.g. right after selecting or switching roles).
+  // Re-run the guard when auth state changes (sign-in/sign-out).
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange(() => {
+      clearMembershipCache();
+      setAuthVersion((v) => v + 1);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Route guard: re-evaluated on every navigation and auth change so it
+  // never acts on stale state.
   useEffect(() => {
     let cancelled = false;
 
-    async function enforceRole() {
-      let role: UserRole | null = null;
-      try {
-        role = await getUserRole();
-      } catch (err) {
-        console.error('Failed to check role:', err);
+    async function enforceAccess() {
+      if (!isSupabaseConfigured) {
+        setIsLoading(false);
+        if (segments[0] !== 'sign-in') {
+          router.replace('/sign-in');
+        }
+        return;
       }
-      if (cancelled) return;
 
-      setIsLoading(false);
-
-      const inRoleSelect = segments[0] === 'role-select';
-      const inJoinHousehold = segments[0] === 'join-household';
-      const inFamilyIdentity = segments[0] === 'family-identity';
-      const inFamilyArea = segments[0] === '(family)' || segments[0] === 'family-item';
+      const inSignIn = segments[0] === 'sign-in';
+      const inOnboarding =
+        segments[0] === 'role-select' || segments[0] === 'join-household';
+      const inFamilyArea =
+        segments[0] === '(family)' || segments[0] === 'family-item';
       const inOwnerArea = segments[0] === '(tabs)' || segments[0] === 'item';
 
-      if (!role) {
-        if (!inRoleSelect) {
-          router.replace('/role-select');
-        }
-      } else if (role === 'grandma') {
-        // Self-heal devices that picked the owner role before the owner
-        // flag existed, so they keep household access in Family mode.
-        markHouseholdOwner().catch(() => {});
-        if (inRoleSelect || inJoinHousehold || inFamilyIdentity || inFamilyArea) {
-          router.replace('/(tabs)');
-        }
-      } else if (role === 'family') {
-        if (inJoinHousehold) return;
-
-        const hasAccess = await hasHouseholdAccess();
+      try {
+        const session = await getSession();
         if (cancelled) return;
 
-        if (!hasAccess) {
-          router.replace('/join-household');
-        } else if (inRoleSelect || inOwnerArea) {
-          const memberId = await getFamilyMemberIdentity();
-          if (cancelled) return;
-          if (memberId) {
+        if (!session) {
+          setIsLoading(false);
+          if (!inSignIn) {
+            router.replace('/sign-in');
+          }
+          return;
+        }
+
+        const membership = await getMyMembership();
+        if (cancelled) return;
+        setIsLoading(false);
+
+        if (!membership) {
+          // Signed in but no household yet: onboarding.
+          if (!inOnboarding) {
+            router.replace('/role-select');
+          }
+        } else if (membership.role === 'owner') {
+          if (inSignIn || inOnboarding || inFamilyArea) {
+            router.replace('/(tabs)');
+          }
+        } else {
+          if (inSignIn || inOnboarding || inOwnerArea) {
             router.replace('/(family)');
-          } else {
-            router.replace('/family-identity');
           }
         }
+      } catch (err) {
+        console.error('Route guard failed:', err);
+        if (!cancelled) setIsLoading(false);
       }
     }
 
-    enforceRole();
+    enforceAccess();
     return () => {
       cancelled = true;
     };
-  }, [segments, router]);
+  }, [segments, router, authVersion]);
 
   if (isLoading) {
     return (
@@ -89,9 +104,9 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: Colors.background },
         }}
       >
+        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Screen name="role-select" options={{ headerShown: false }} />
         <Stack.Screen name="join-household" options={{ headerShown: false }} />
-        <Stack.Screen name="family-identity" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(family)" options={{ headerShown: false }} />
         <Stack.Screen

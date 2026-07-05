@@ -7,17 +7,16 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { FamilyItemCard } from '@/components/FamilyItemCard';
 import { EmptyState } from '@/components/EmptyState';
 import { listItems } from '@/lib/items';
-import { getFamilyMemberIdentity, clearFamilyMemberIdentity } from '@/lib/userRole';
-import { getFamilyMember } from '@/lib/familyMembers';
+import { getMyFamilyMember, ensureMyFamilyMember } from '@/lib/userRole';
+import { getDisplayName, getUser } from '@/lib/auth';
 import type { Item, FamilyMember } from '@/types/item';
 
 export default function FamilyBrowseScreen() {
-  const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -25,26 +24,21 @@ export default function FamilyBrowseScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [itemsData, memberId] = await Promise.all([
+      const [itemsData, member] = await Promise.all([
         listItems(),
-        getFamilyMemberIdentity(),
+        getMyFamilyMember(),
       ]);
       
       setItems(itemsData.filter(i => i.analysis_status === 'completed'));
       
-      if (memberId) {
-        const member = await getFamilyMember(memberId);
-        if (!member) {
-          // The owner deleted this family member; the stored identity is
-          // stale, so send the user back to pick or re-create one.
-          await clearFamilyMemberIdentity();
-          router.replace('/family-identity');
-          return;
-        }
+      if (member) {
         setMyIdentity(member);
       } else {
-        router.replace('/family-identity');
-        return;
+        // Identity row missing (e.g. the owner deleted it) — recreate it
+        // from the account's display name.
+        const user = await getUser();
+        const recreated = await ensureMyFamilyMember(getDisplayName(user));
+        setMyIdentity(recreated);
       }
     } catch (err) {
       console.error('Failed to load items:', err);
@@ -52,7 +46,7 @@ export default function FamilyBrowseScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [router]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

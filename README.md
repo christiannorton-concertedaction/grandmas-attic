@@ -27,7 +27,23 @@ npm install
    - `supabase/migrations/005_add_analysis_status.sql`
    - `supabase/migrations/006_add_family_features.sql`
    - `supabase/migrations/007_add_household_invites.sql`
+   - `supabase/migrations/008_add_accounts.sql`
 3. Copy your project URL and anon key
+
+### 2b. Configure OAuth sign-in (no passwords)
+
+Users sign in with Apple or Google — there are no passwords to manage.
+
+**Sign in with Apple** (required for the App Store if you offer other social logins):
+1. In the [Apple Developer portal](https://developer.apple.com), enable the "Sign in with Apple" capability for your bundle id (`com.grandmasattic.app`).
+2. In the Supabase dashboard, go to **Authentication → Providers → Apple**, enable it, and add your bundle id as the client id.
+3. The app uses the native Apple sign-in sheet on iOS (no browser round-trip).
+
+**Google:**
+1. Create OAuth credentials at [console.cloud.google.com](https://console.cloud.google.com) (type: Web application).
+2. Add your Supabase callback URL (`https://your-project.supabase.co/auth/v1/callback`) as an authorized redirect URI.
+3. In the Supabase dashboard, go to **Authentication → Providers → Google**, enable it, and paste the client id and secret.
+4. In **Authentication → URL Configuration**, add the app's redirect URL `grandmas-attic://` to the allowed redirect URLs.
 
 ### 3. Environment variables
 
@@ -42,7 +58,7 @@ EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### 4. Deploy the AI Edge Function
+### 4. Deploy the Edge Functions
 
 Install the [Supabase CLI](https://supabase.com/docs/guides/cli), then:
 
@@ -54,6 +70,7 @@ supabase secrets set EBAY_APP_ID=your-ebay-app-id  # Optional, for eBay pricing
 supabase functions deploy analyze-item
 supabase functions deploy analyze-batch
 supabase functions deploy ebay-pricing
+supabase functions deploy join-household
 ```
 
 The edge function uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` automatically in production.
@@ -66,50 +83,55 @@ npx expo start
 
 Scan the QR code with **Expo Go** on your iPhone, or press `i` for the iOS simulator.
 
-## User Roles
+## Accounts & Roles
 
-The app supports two user roles:
+Everyone signs in with **Apple or Google** (OAuth — no passwords). A user's role comes from their household membership on the server, enforced by row level security:
 
 ### Owner ("Grandma")
-- Full access to all features
-- Add, edit, and delete items
-- AI-powered analysis and valuation
+- Creates the household during onboarding
+- Add, edit, and delete items; AI analysis and valuation
 - Make decisions about items (keep, sell, donate, etc.)
-- Manage family members
+- Manage family members and the invite code
 - See who is interested in items and read family comments
 
 ### Family
+- Joins the owner's household with an invite code
 - Browse the catalog of completed items
 - Mark items they're interested in ("I want this")
 - Leave notes/comments on items
-- View item details, values, and stories
-
-On first launch, users select their role. The role is stored locally and can be switched from Settings.
+- Identity comes from their account — no impersonation
 
 ## Household Invites
 
 Family members join the owner's household with an **invite code** — there is no way to browse or request access to other households.
 
 - The owner finds their 6-character invite code in **Settings → Invite Family** and can share it via the system share sheet.
-- A family member on their own phone chooses "I'm Family" and enters the code to join.
-- The owner can generate a new code at any time; the old code stops working immediately, but devices that already joined keep their access.
+- A family member signs in on their own phone, chooses "I'm Family", and enters the code to join.
+- Codes are validated server-side (edge function); clients can never read or enumerate them.
+- The owner can generate a new code at any time; the old code stops working immediately, but members who already joined keep their access.
 - Family members can leave a household from Settings and rejoin later with a current code.
-- Selecting "I'm the Owner" on a device that joined someone else's household detaches it first and creates a fresh household, so a family member can never take over the owner's data.
+
+## Security model
+
+- **Row level security** on every table: members can only read data for their own household; only the owner can write items, photos, and invites; family users can only manage their own interests, notes, and identity.
+- **Storage policies**: item photos are readable only by household members and writable only by the owner.
+- **Edge functions** verify the caller's JWT: only the household owner can trigger (and pay for) batch AI analysis; joining a household is validated server-side.
 
 ## App flow
 
 ### Owner Flow
-1. **Items tab** — view everything you've cataloged
-2. **Add tab** — batch capture: take multiple photos with stories → analyze all at once (saves ~90% on AI costs)
-3. **Item detail** — edit notes, change decision, view eBay pricing, see family interest, delete item
-4. **Settings tab** — view role, switch to Family mode
+1. **Sign in** with Apple or Google → choose "I'm the Owner" (creates your household)
+2. **Items tab** — view everything you've cataloged
+3. **Add tab** — batch capture: take multiple photos with stories → analyze all at once (saves ~90% on AI costs)
+4. **Item detail** — edit notes, change decision, view eBay pricing, see family interest, delete item
+5. **Settings tab** — share/regenerate invite code, sign out
 
 ### Family Flow
-1. **Join household** — enter the owner's invite code (first time on a new device)
+1. **Sign in** with Apple or Google → choose "I'm Family" → enter the owner's invite code
 2. **Browse tab** — view all cataloged items
 3. **Item detail** — view details, mark interest, leave comments
 4. **My Interests tab** — see items you've marked as wanting
-5. **Settings tab** — change identity, leave household, switch role
+5. **Settings tab** — leave household, sign out
 
 ## Cost Optimization
 
@@ -156,7 +178,7 @@ Family members can leave comments on items. Notes appear on the item detail page
 
 ## Notes
 
-- v1 uses a device-local `household_id` (no login). The owner's device generates it; family devices adopt it by joining with an invite code.
-- User role is stored locally via AsyncStorage. Family members select their identity from the family member list.
+- Sign in with Apple and native OAuth require a development build (`npx expo run:ios`); they do not work in Expo Go.
+- Family member identity is created automatically from the account's name when joining. The owner can still create name-only family members (no account) to tag items like "give to Sarah".
 - AI value estimates are rough guides, not professional appraisals.
 - Requires Node.js 18.18+ (20+ recommended) for development.

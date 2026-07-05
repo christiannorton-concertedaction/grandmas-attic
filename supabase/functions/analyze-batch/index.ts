@@ -115,6 +115,39 @@ serve(async (req) => {
       throw new Error('household_id is required');
     }
 
+    // Only the household owner may trigger (and pay for) analysis.
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const jwt = authHeader.replace(/^Bearer\s+/i, '');
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(jwt);
+
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Not signed in' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: membership, error: membershipError } = await supabase
+      .from('household_members')
+      .select('role')
+      .eq('household_id', household_id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (membershipError) throw membershipError;
+    if (!membership || membership.role !== 'owner') {
+      return new Response(
+        JSON.stringify({ error: 'Only the household owner can run analysis' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     const { data: pendingItems, error: fetchError } = await supabase
       .from('items')
       .select('id, photo_path, prominence')
