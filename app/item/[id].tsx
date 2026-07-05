@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DecisionPicker } from '@/components/DecisionPicker';
 import { Colors } from '@/constants/Colors';
 import {
@@ -19,7 +20,14 @@ import {
   getPhotoSignedUrl,
   updateItemDecision,
   updateItemNotes,
+  updateItemProminence,
 } from '@/lib/items';
+import {
+  getItemInterests,
+  getFamilyNotes,
+  type ItemInterestWithMember,
+  type FamilyNoteWithMember,
+} from '@/lib/familyInteractions';
 import { formatValueRange, type Decision, type Item } from '@/types/item';
 
 export default function ItemDetailScreen() {
@@ -28,11 +36,15 @@ export default function ItemDetailScreen() {
   const [item, setItem] = useState<Item | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [prominence, setProminence] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingNotes, setSavingNotes] = useState(false);
+  const [savingProminence, setSavingProminence] = useState(false);
   const [updatingDecision, setUpdatingDecision] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [interests, setInterests] = useState<ItemInterestWithMember[]>([]);
+  const [familyNotes, setFamilyNotes] = useState<FamilyNoteWithMember[]>([]);
 
   const loadItem = useCallback(async () => {
     if (!id) return;
@@ -50,9 +62,16 @@ export default function ItemDetailScreen() {
 
       setItem(data);
       setNotes(data.notes ?? '');
+      setProminence(data.prominence ?? '');
 
-      const url = await getPhotoSignedUrl(data.photo_path);
+      const [url, itemInterests, itemNotes] = await Promise.all([
+        getPhotoSignedUrl(data.photo_path),
+        getItemInterests(id),
+        getFamilyNotes(id),
+      ]);
       setPhotoUrl(url);
+      setInterests(itemInterests);
+      setFamilyNotes(itemNotes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load item');
     } finally {
@@ -83,12 +102,29 @@ export default function ItemDetailScreen() {
     }
   }
 
-  async function handleDecisionChange(decision: Decision) {
-    if (!item || decision === item.decision) return;
+  async function handleProminenceBlur() {
+    if (!item || prominence === (item.prominence ?? '')) return;
+
+    setSavingProminence(true);
+    try {
+      const updated = await updateItemProminence(item.id, prominence);
+      setItem(updated);
+    } catch (err) {
+      Alert.alert(
+        'Error',
+        err instanceof Error ? err.message : 'Failed to save story'
+      );
+    } finally {
+      setSavingProminence(false);
+    }
+  }
+
+  async function handleDecisionChange(decision: Decision, familyMemberId?: string | null) {
+    if (!item || (decision === item.decision && familyMemberId === item.family_member_id)) return;
 
     setUpdatingDecision(true);
     try {
-      const updated = await updateItemDecision(item.id, decision);
+      const updated = await updateItemDecision(item.id, decision, familyMemberId);
       setItem(updated);
     } catch (err) {
       Alert.alert(
@@ -176,7 +212,7 @@ export default function ItemDetailScreen() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.notesHeader}>
+        <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Notes</Text>
           {savingNotes && (
             <ActivityIndicator size="small" color={Colors.primary} />
@@ -195,9 +231,62 @@ export default function ItemDetailScreen() {
       </View>
 
       <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Story & History</Text>
+          {savingProminence && (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          )}
+        </View>
+        <Text style={styles.prominenceHint}>
+          Record this item's story — where it came from, who owned it, why it matters.
+        </Text>
+        <TextInput
+          style={styles.prominenceInput}
+          value={prominence}
+          onChangeText={setProminence}
+          onBlur={handleProminenceBlur}
+          placeholder="e.g., This was Grandpa Joe's watch from WWII..."
+          placeholderTextColor={Colors.textMuted}
+          multiline
+          textAlignVertical="top"
+        />
+      </View>
+
+      {(interests.length > 0 || familyNotes.length > 0) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Family Interest</Text>
+          
+          {interests.length > 0 && (
+            <View style={styles.interestBox}>
+              <FontAwesome name="heart" size={16} color={Colors.primary} />
+              <Text style={styles.interestText}>
+                {interests.map(i => i.family_member.name).join(', ')}
+                {interests.length === 1 ? ' wants' : ' want'} this item
+              </Text>
+            </View>
+          )}
+
+          {familyNotes.length > 0 && (
+            <View style={styles.notesList}>
+              {familyNotes.map((note) => (
+                <View key={note.id} style={styles.noteItem}>
+                  <View style={styles.noteHeader}>
+                    <FontAwesome name="comment" size={12} color={Colors.textMuted} />
+                    <Text style={styles.noteName}>{note.family_member.name}</Text>
+                  </View>
+                  <Text style={styles.noteText}>{note.note}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Decision</Text>
         <DecisionPicker
           value={item.decision}
+          familyMemberId={item.family_member_id}
           onChange={handleDecisionChange}
           disabled={updatingDecision}
         />
@@ -293,12 +382,49 @@ const styles = StyleSheet.create({
   section: {
     gap: 10,
   },
+  interestBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F3EAD6',
+    padding: 14,
+    borderRadius: 10,
+  },
+  interestText: {
+    flex: 1,
+    color: Colors.text,
+    fontSize: 14,
+  },
+  notesList: {
+    gap: 8,
+  },
+  noteItem: {
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+  },
+  noteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  noteName: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  noteText: {
+    color: Colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   sectionTitle: {
     color: Colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
-  notesHeader: {
+  sectionHeader: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
@@ -310,7 +436,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: Colors.text,
     fontSize: 16,
-    minHeight: 120,
+    minHeight: 100,
+    padding: 14,
+  },
+  prominenceHint: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  prominenceInput: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    color: Colors.text,
+    fontSize: 16,
+    minHeight: 140,
     padding: 14,
   },
   deleteButton: {

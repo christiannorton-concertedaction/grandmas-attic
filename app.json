@@ -16,9 +16,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.grandmasattic.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Take photos of items in your home to catalog and price them.",
-        "NSPhotoLibraryUsageDescription": "Choose photos of items you want to catalog and sell."
+        "NSPhotoLibraryUsageDescription": "Choose photos of items you want to catalog and sell.",
+        "NSSpeechRecognitionUsageDescription": "Speak the story behind your items instead of typing.",
+        "NSMicrophoneUsageDescription": "Record your voice to describe item stories and history."
       }
     },
     "android": {
@@ -29,16 +32,26 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
+      "expo-web-browser",
       [
         "expo-image-picker",
         {
           "photosPermission": "Choose photos of items you want to catalog and sell.",
           "cameraPermission": "Take photos of items in your home to catalog and price them."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Record your voice to describe item stories and history.",
+          "speechRecognitionPermission": "Speak the story behind your items instead of typing."
         }
       ]
     ],

@@ -1,23 +1,38 @@
 export type Decision =
   | 'undecided'
+  | 'keep'
   | 'ebay'
   | 'garage_sale'
-  | 'child_a'
-  | 'child_b';
+  | 'donate'
+  | 'trash'
+  | 'family_member';
 
 export type AiConfidence = 'low' | 'medium' | 'high';
+
+export type AnalysisStatus = 'pending' | 'analyzing' | 'completed' | 'failed';
+
+export interface FamilyMember {
+  id: string;
+  household_id: string;
+  name: string;
+  created_at: string;
+}
 
 export interface Item {
   id: string;
   household_id: string;
   photo_path: string;
-  title: string;
+  title: string | null;
   description: string;
   estimated_value_low: number | null;
   estimated_value_high: number | null;
   notes: string | null;
+  prominence: string | null;
   decision: Decision;
+  family_member_id: string | null;
   ai_confidence: AiConfidence | null;
+  analysis_status: AnalysisStatus;
+  analysis_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,37 +48,46 @@ export interface AnalyzeResult {
 export interface CreateItemInput {
   id?: string;
   photo_path: string;
-  title: string;
-  description: string;
-  estimated_value_low: number | null;
-  estimated_value_high: number | null;
+  title?: string | null;
+  description?: string;
+  estimated_value_low?: number | null;
+  estimated_value_high?: number | null;
   notes?: string | null;
+  prominence?: string | null;
   decision?: Decision;
+  family_member_id?: string | null;
   ai_confidence?: AiConfidence | null;
+  analysis_status?: AnalysisStatus;
 }
 
 export const DECISIONS: Decision[] = [
   'undecided',
+  'keep',
   'ebay',
   'garage_sale',
-  'child_a',
-  'child_b',
+  'donate',
+  'trash',
+  'family_member',
 ];
 
 export const DECISION_LABELS: Record<Decision, string> = {
   undecided: 'Undecided',
+  keep: 'Keep',
   ebay: 'Sell on eBay',
   garage_sale: 'Garage Sale',
-  child_a: 'Child A wants it',
-  child_b: 'Child B wants it',
+  donate: 'Donate',
+  trash: 'Trash',
+  family_member: 'Give to Family',
 };
 
 export const DECISION_COLORS: Record<Decision, string> = {
   undecided: '#9CA3AF',
+  keep: '#059669',
   ebay: '#2563EB',
   garage_sale: '#16A34A',
-  child_a: '#9333EA',
-  child_b: '#DB2777',
+  donate: '#D97706',
+  trash: '#DC2626',
+  family_member: '#9333EA',
 };
 
 export function formatValueRange(

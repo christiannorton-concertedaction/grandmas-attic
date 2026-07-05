@@ -8,9 +8,12 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Colors } from '@/constants/Colors';
 import { DecisionBadge } from '@/components/DecisionPicker';
 import { getPhotoSignedUrl } from '@/lib/items';
+import { getFamilyMember } from '@/lib/familyMembers';
+import { getItemInterests } from '@/lib/familyInteractions';
 import { formatValueRange, type Item } from '@/types/item';
 
 interface ItemCardProps {
@@ -21,6 +24,8 @@ export function ItemCard({ item }: ItemCardProps) {
   const router = useRouter();
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loadingPhoto, setLoadingPhoto] = useState(true);
+  const [familyMemberName, setFamilyMemberName] = useState<string | null>(null);
+  const [interestCount, setInterestCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +44,41 @@ export function ItemCard({ item }: ItemCardProps) {
     };
   }, [item.photo_path]);
 
+  useEffect(() => {
+    if (item.decision === 'family_member' && item.family_member_id) {
+      let cancelled = false;
+      getFamilyMember(item.family_member_id)
+        .then((member) => {
+          if (!cancelled && member) setFamilyMemberName(member.name);
+        })
+        .catch(() => {
+          if (!cancelled) setFamilyMemberName(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setFamilyMemberName(null);
+    }
+  }, [item.decision, item.family_member_id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getItemInterests(item.id)
+      .then((interests) => {
+        if (!cancelled) setInterestCount(interests.length);
+      })
+      .catch(() => {
+        if (!cancelled) setInterestCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id]);
+
+  const isPending = item.analysis_status === 'pending' || item.analysis_status === 'analyzing';
+  const isFailed = item.analysis_status === 'failed';
+
   return (
     <Pressable
       style={styles.card}
@@ -52,15 +92,36 @@ export function ItemCard({ item }: ItemCardProps) {
         ) : (
           <Text style={styles.placeholder}>📷</Text>
         )}
+        {isPending && (
+          <View style={styles.pendingOverlay}>
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          </View>
+        )}
       </View>
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={2}>
-          {item.title}
+          {item.title || (isPending ? 'Analyzing...' : 'Unknown item')}
         </Text>
-        <Text style={styles.value}>
-          {formatValueRange(item.estimated_value_low, item.estimated_value_high)}
-        </Text>
-        <DecisionBadge decision={item.decision} compact />
+        {isFailed ? (
+          <Text style={styles.errorText}>Analysis failed</Text>
+        ) : isPending ? (
+          <Text style={styles.pendingText}>Waiting for analysis</Text>
+        ) : (
+          <>
+            <View style={styles.valueRow}>
+              <Text style={styles.value}>
+                {formatValueRange(item.estimated_value_low, item.estimated_value_high)}
+              </Text>
+              {interestCount > 0 && (
+                <View style={styles.interestBadge}>
+                  <FontAwesome name="heart" size={10} color={Colors.primary} />
+                  <Text style={styles.interestCount}>{interestCount}</Text>
+                </View>
+              )}
+            </View>
+            <DecisionBadge decision={item.decision} familyMemberName={familyMemberName} compact />
+          </>
+        )}
       </View>
     </Pressable>
   );
@@ -104,8 +165,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   value: {
     color: Colors.textMuted,
     fontSize: 14,
+  },
+  interestBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3EAD6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  interestCount: {
+    color: Colors.primary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  pendingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingText: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 13,
   },
 });
