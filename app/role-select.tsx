@@ -10,6 +10,13 @@ import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Colors } from '@/constants/Colors';
 import { setUserRole, type UserRole } from '@/lib/userRole';
+import {
+  markHouseholdOwner,
+  hasHouseholdAccess,
+  isHouseholdOwner,
+  hasJoinedHousehold,
+  leaveHousehold,
+} from '@/lib/household';
 
 export default function RoleSelectScreen() {
   const router = useRouter();
@@ -20,9 +27,27 @@ export default function RoleSelectScreen() {
     try {
       await setUserRole(role);
       if (role === 'grandma') {
+        // A device that joined someone else's household via invite must not
+        // become that household's owner. Detach first so a fresh household
+        // is created for this device instead.
+        const [owner, joined] = await Promise.all([
+          isHouseholdOwner(),
+          hasJoinedHousehold(),
+        ]);
+        if (joined && !owner) {
+          await leaveHousehold();
+        }
+        await markHouseholdOwner();
         router.replace('/(tabs)');
       } else {
-        router.replace('/family-identity');
+        // Family members must join a household via invite code unless this
+        // device already has access (it's the owner's phone or joined before).
+        const hasAccess = await hasHouseholdAccess();
+        if (hasAccess) {
+          router.replace('/family-identity');
+        } else {
+          router.replace('/join-household');
+        }
       }
     } catch (err) {
       console.error('Failed to set role:', err);

@@ -12,6 +12,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Colors } from '@/constants/Colors';
 import { clearUserRole, getFamilyMemberIdentity } from '@/lib/userRole';
 import { getFamilyMember } from '@/lib/familyMembers';
+import { isHouseholdOwner, leaveHousehold } from '@/lib/household';
 import type { FamilyMember } from '@/types/item';
 
 export default function FamilySettingsScreen() {
@@ -19,6 +20,8 @@ export default function FamilySettingsScreen() {
   const [identity, setIdentity] = useState<FamilyMember | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [isOwnerDevice, setIsOwnerDevice] = useState(false);
 
   useEffect(() => {
     loadIdentity();
@@ -26,7 +29,11 @@ export default function FamilySettingsScreen() {
 
   async function loadIdentity() {
     try {
-      const memberId = await getFamilyMemberIdentity();
+      const [memberId, ownerDevice] = await Promise.all([
+        getFamilyMemberIdentity(),
+        isHouseholdOwner(),
+      ]);
+      setIsOwnerDevice(ownerDevice);
       if (memberId) {
         const member = await getFamilyMember(memberId);
         setIdentity(member);
@@ -36,6 +43,31 @@ export default function FamilySettingsScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleLeaveHousehold() {
+    Alert.alert(
+      'Leave Household?',
+      "You'll no longer see this family's items. You can rejoin later with a new invite code from the owner.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            setLeaving(true);
+            try {
+              await leaveHousehold();
+              await clearUserRole();
+              router.replace('/role-select');
+            } catch (err) {
+              console.error('Failed to leave household:', err);
+              setLeaving(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   function handleSwitchRole() {
@@ -94,19 +126,38 @@ export default function FamilySettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>App Settings</Text>
         <Pressable
-          style={[styles.dangerButton, switching && styles.disabled]}
+          style={[styles.optionButton, switching && styles.disabled]}
           onPress={handleSwitchRole}
-          disabled={switching}
+          disabled={switching || leaving}
         >
           {switching ? (
-            <ActivityIndicator size="small" color={Colors.error} />
+            <ActivityIndicator size="small" color={Colors.primary} />
           ) : (
             <>
-              <FontAwesome name="sign-out" size={18} color={Colors.error} />
-              <Text style={styles.dangerButtonText}>Switch to Owner Mode</Text>
+              <FontAwesome name="exchange" size={18} color={Colors.primary} />
+              <Text style={styles.optionButtonText}>
+                {isOwnerDevice ? 'Switch to Owner Mode' : 'Switch Role'}
+              </Text>
             </>
           )}
         </Pressable>
+
+        {!isOwnerDevice && (
+          <Pressable
+            style={[styles.dangerButton, leaving && styles.disabled]}
+            onPress={handleLeaveHousehold}
+            disabled={leaving || switching}
+          >
+            {leaving ? (
+              <ActivityIndicator size="small" color={Colors.error} />
+            ) : (
+              <>
+                <FontAwesome name="sign-out" size={18} color={Colors.error} />
+                <Text style={styles.dangerButtonText}>Leave Household</Text>
+              </>
+            )}
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.footer}>
@@ -175,6 +226,23 @@ const styles = StyleSheet.create({
   linkButtonText: {
     color: Colors.primary,
     fontSize: 14,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  optionButtonText: {
+    color: Colors.primary,
+    fontSize: 16,
+    fontWeight: '500',
   },
   dangerButton: {
     flexDirection: 'row',

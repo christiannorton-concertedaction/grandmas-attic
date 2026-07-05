@@ -26,6 +26,7 @@ npm install
    - `supabase/migrations/004_add_decision_options.sql`
    - `supabase/migrations/005_add_analysis_status.sql`
    - `supabase/migrations/006_add_family_features.sql`
+   - `supabase/migrations/007_add_household_invites.sql`
 3. Copy your project URL and anon key
 
 ### 3. Environment variables
@@ -85,6 +86,16 @@ The app supports two user roles:
 
 On first launch, users select their role. The role is stored locally and can be switched from Settings.
 
+## Household Invites
+
+Family members join the owner's household with an **invite code** — there is no way to browse or request access to other households.
+
+- The owner finds their 6-character invite code in **Settings → Invite Family** and can share it via the system share sheet.
+- A family member on their own phone chooses "I'm Family" and enters the code to join.
+- The owner can generate a new code at any time; the old code stops working immediately, but devices that already joined keep their access.
+- Family members can leave a household from Settings and rejoin later with a current code.
+- Selecting "I'm the Owner" on a device that joined someone else's household detaches it first and creates a fresh household, so a family member can never take over the owner's data.
+
 ## App flow
 
 ### Owner Flow
@@ -94,10 +105,11 @@ On first launch, users select their role. The role is stored locally and can be 
 4. **Settings tab** — view role, switch to Family mode
 
 ### Family Flow
-1. **Browse tab** — view all cataloged items
-2. **Item detail** — view details, mark interest, leave comments
-3. **My Interests tab** — see items you've marked as wanting
-4. **Settings tab** — change identity, switch to Owner mode
+1. **Join household** — enter the owner's invite code (first time on a new device)
+2. **Browse tab** — view all cataloged items
+3. **Item detail** — view details, mark interest, leave comments
+4. **My Interests tab** — see items you've marked as wanting
+5. **Settings tab** — change identity, leave household, switch role
 
 ## Cost Optimization
 
@@ -144,7 +156,7 @@ Family members can leave comments on items. Notes appear on the item detail page
 
 ## Notes
 
-- v1 uses a device-local `household_id` (no login). Data stays on this phone's scope.
+- v1 uses a device-local `household_id` (no login). The owner's device generates it; family devices adopt it by joining with an invite code.
 - User role is stored locally via AsyncStorage. Family members select their identity from the family member list.
 - AI value estimates are rough guides, not professional appraisals.
 - Requires Node.js 18.18+ (20+ recommended) for development.

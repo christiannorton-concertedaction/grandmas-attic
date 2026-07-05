@@ -4,6 +4,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/Colors';
 import { getUserRole, getFamilyMemberIdentity, type UserRole } from '@/lib/userRole';
+import { hasHouseholdAccess, markHouseholdOwner } from '@/lib/household';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function RootLayout() {
       setIsLoading(false);
 
       const inRoleSelect = segments[0] === 'role-select';
+      const inJoinHousehold = segments[0] === 'join-household';
       const inFamilyIdentity = segments[0] === 'family-identity';
       const inFamilyArea = segments[0] === '(family)' || segments[0] === 'family-item';
       const inOwnerArea = segments[0] === '(tabs)' || segments[0] === 'item';
@@ -36,11 +38,21 @@ export default function RootLayout() {
           router.replace('/role-select');
         }
       } else if (role === 'grandma') {
-        if (inRoleSelect || inFamilyIdentity || inFamilyArea) {
+        // Self-heal devices that picked the owner role before the owner
+        // flag existed, so they keep household access in Family mode.
+        markHouseholdOwner().catch(() => {});
+        if (inRoleSelect || inJoinHousehold || inFamilyIdentity || inFamilyArea) {
           router.replace('/(tabs)');
         }
       } else if (role === 'family') {
-        if (inRoleSelect || inOwnerArea) {
+        if (inJoinHousehold) return;
+
+        const hasAccess = await hasHouseholdAccess();
+        if (cancelled) return;
+
+        if (!hasAccess) {
+          router.replace('/join-household');
+        } else if (inRoleSelect || inOwnerArea) {
           const memberId = await getFamilyMemberIdentity();
           if (cancelled) return;
           if (memberId) {
@@ -78,6 +90,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="role-select" options={{ headerShown: false }} />
+        <Stack.Screen name="join-household" options={{ headerShown: false }} />
         <Stack.Screen name="family-identity" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(family)" options={{ headerShown: false }} />
